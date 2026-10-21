@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import handler from './api';
+import handler from './functions/api';
 
 const ctx = {} as Parameters<typeof handler>[1];
 const call = (path: string, init?: RequestInit) =>
