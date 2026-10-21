@@ -1,0 +1,18 @@
+# Private working files (never public)
+CLAUDE.md
+.claude/
+private/
+
+# Secrets and local state
+.env
+.env.*
+!.env.example
+.netlify/
+
+# Build and tooling output
+node_modules/
+dist/
+coverage/
+playwright-report/
+test-results/
+*.log

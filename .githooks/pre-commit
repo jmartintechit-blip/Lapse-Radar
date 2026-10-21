@@ -1,0 +1,8 @@
+#!/bin/sh
+# Blocks commits that stage private AI/working files.
+bad=$(git diff --cached --name-only | grep -E '(^|/)(private/|\.claude/|CLAUDE\.md$)')
+if [ -n "$bad" ]; then
+  echo "pre-commit: private files are staged, commit aborted:"
+  echo "$bad"
+  exit 1
+fi

@@ -1,0 +1,31 @@
+{
+  "name": "lapse-radar",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Expiry dashboard for domains, TLS certificates and secrets, with deduplicated alerts.",
+  "license": "MIT",
+  "author": "Juan Antonio Martín Nadales",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "format": "prettier --check .",
+    "format:write": "prettier --write .",
+    "test": "vitest run --passWithNoTests",
+    "check": "npm run lint && npm run typecheck && npm run format && npm test"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@types/node": "24.19.2",
+    "eslint": "10.13.0",
+    "globals": "17.13.0",
+    "prettier": "3.9.10",
+    "tsx": "4.23.15",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.72.0",
+    "vitest": "5.0.5"
+  }
+}
