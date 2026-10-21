@@ -17,7 +17,7 @@
     "test": "vitest run",
     "dev": "vite",
     "build": "vite build",
-    "migrate": "tsx server/db/migrate-cli.ts",
+    "migrate": "tsx --env-file-if-exists=.env server/db/migrate-cli.ts",
     "e2e": "playwright test",
     "check": "npm run lint && npm run typecheck && npm run format && npm test"
   },
