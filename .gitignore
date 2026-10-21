@@ -16,3 +16,6 @@ coverage/
 playwright-report/
 test-results/
 *.log
+
+# Local PGlite data
+.data/
