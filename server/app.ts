@@ -1,6 +1,7 @@
 import express, { type ErrorRequestHandler } from 'express';
 import { authRouter, type GetDb } from './auth';
 import { edgeRouter } from './edge-routes';
+import { itemsRouter } from './items';
 
 // The database is opened lazily by getDb, so routes that never touch it (health, edge cases) need no connection.
 export function createApp(getDb: GetDb) {
@@ -13,6 +14,7 @@ export function createApp(getDb: GetDb) {
 
   app.use('/api/_edge', edgeRouter);
   app.use('/api', authRouter(getDb));
+  app.use('/api', itemsRouter(getDb));
 
   app.use('/api', (_req, res) => {
     res.status(404).json({ error: { code: 'not_found', message: 'Not found' } });
