@@ -1,10 +1,10 @@
-﻿{
+{
   "name": "lapse-radar",
   "version": "0.0.0",
   "private": true,
   "description": "Expiry dashboard for domains, TLS certificates and secrets, with deduplicated alerts.",
   "license": "MIT",
-  "author": "Juan Antonio MartÃ­n Nadales",
+  "author": "Juan Antonio Martín Nadales",
   "type": "module",
   "engines": {
     "node": ">=22"
