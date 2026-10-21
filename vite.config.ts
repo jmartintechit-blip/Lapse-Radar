@@ -4,10 +4,11 @@ import { createApp } from './server/app';
 import { migrate } from './server/db/migrate';
 import { createPgliteDb } from './server/db/pglite';
 
-// Local dev keeps data in .data/dev (PGlite); started on the first request that needs it.
+// Local dev keeps data in .data/dev (PGlite); E2E runs use an in-memory database instead.
+// Opened on the first request that needs it.
 let dev: ReturnType<typeof openDevDb> | undefined;
 const openDevDb = async () => {
-  const db = createPgliteDb('.data/dev');
+  const db = createPgliteDb(process.env.LAPSE_DB === 'memory' ? undefined : '.data/dev');
   await migrate(db);
   return db;
 };

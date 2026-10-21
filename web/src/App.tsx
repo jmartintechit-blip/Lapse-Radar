@@ -1,10 +1,13 @@
 import { useEffect, useState } from 'react';
-import { Route, Routes } from 'react-router';
+import { Link, Route, Routes } from 'react-router';
+import { AuthForm } from './AuthForm';
+import { AuthProvider, RequireUser, useAuth } from './auth';
 
 type ApiStatus = 'loading' | 'ok' | 'error';
 
 function Home() {
   const [status, setStatus] = useState<ApiStatus>('loading');
+  const { user } = useAuth();
 
   useEffect(() => {
     fetch('/api/health')
@@ -17,6 +20,28 @@ function Home() {
       <h1>Lapse Radar</h1>
       <p>Know what expires before it breaks.</p>
       <p role="status">API status: {status}</p>
+      <nav aria-label="Account">
+        {user ? (
+          <Link to="/dashboard">Go to dashboard</Link>
+        ) : (
+          <>
+            <Link to="/login">Sign in</Link> · <Link to="/signup">Create account</Link>
+          </>
+        )}
+      </nav>
+    </main>
+  );
+}
+
+function Dashboard() {
+  const { user, logout } = useAuth();
+  return (
+    <main>
+      <h1>Dashboard</h1>
+      <p>Signed in as {user?.email}</p>
+      <button type="button" onClick={() => void logout()}>
+        Sign out
+      </button>
     </main>
   );
 }
@@ -31,9 +56,16 @@ function NotFound() {
 
 export function App() {
   return (
-    <Routes>
-      <Route path="/" element={<Home />} />
-      <Route path="*" element={<NotFound />} />
-    </Routes>
+    <AuthProvider>
+      <Routes>
+        <Route path="/" element={<Home />} />
+        <Route path="/login" element={<AuthForm mode="login" />} />
+        <Route path="/signup" element={<AuthForm mode="signup" />} />
+        <Route element={<RequireUser />}>
+          <Route path="/dashboard" element={<Dashboard />} />
+        </Route>
+        <Route path="*" element={<NotFound />} />
+      </Routes>
+    </AuthProvider>
   );
 }
