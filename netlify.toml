@@ -1,0 +1,13 @@
+# Production deploys come from the `release` branch (set as production branch in the Netlify UI).
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "24"
+
+# SPA fallback for react-router. Functions with an in-code `path` (/api/*) are matched before redirects.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
