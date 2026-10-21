@@ -1,6 +1,7 @@
 import express, { Router, type Response } from 'express';
 import { z } from 'zod';
 import { requireUser, type AuthUser, type GetDb } from './auth';
+import { checkItem, type Checker, type DueItem } from './checks/runner';
 
 export const MAX_ITEMS = 10;
 
@@ -65,7 +66,7 @@ const fail = (res: Response, status: number, code: string, message: string) =>
 const user = (res: Response) => res.locals.user as AuthUser;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-export function itemsRouter(getDb: GetDb) {
+export function itemsRouter(getDb: GetDb, check?: Checker) {
   const router = Router();
   router.use('/items', requireUser(getDb), express.json({ limit: '10kb' }));
   // The demo account is read-only (invariant 6).
@@ -172,6 +173,32 @@ export function itemsRouter(getDb: GetDb) {
     ]);
     if (!rows[0]) return void fail(res, 404, 'not_found', 'Item not found');
     res.status(204).end();
+  });
+
+  // "Check now": at most one check per item per minute. The row lock makes the claim atomic, so two
+  // simultaneous requests cannot both pass; last_checked_at is stamped before the check runs.
+  router.post('/items/:id/check', async (req, res) => {
+    const db = await getDb();
+    const claim = await db.transaction(async (tx) => {
+      const [row] = await tx.query<Omit<DueItem, 'kind'> & { kind: string; recent: boolean }>(
+        `select id, kind, host, last_checked_at > now() - interval '1 minute' as recent
+         from items where id = $1 and user_id = $2 for update`,
+        [req.params.id, user(res).id],
+      );
+      if (!row) return 'missing' as const;
+      if (row.kind === 'manual') return 'manual' as const;
+      if (row.recent) return 'recent' as const;
+      await tx.query('update items set last_checked_at = now() where id = $1', [row.id]);
+      return row as DueItem; // kind is tls or domain here
+    });
+    if (claim === 'missing') return void fail(res, 404, 'not_found', 'Item not found');
+    if (claim === 'manual')
+      return void fail(res, 400, 'invalid_input', 'Manual items are not checked automatically');
+    if (claim === 'recent')
+      return void fail(res, 429, 'check_rate_limited', 'You can check an item once per minute');
+    await checkItem(db, claim, check);
+    const [row] = await db.query<ItemRow>(`select ${COLUMNS} from items where id = $1`, [claim.id]);
+    res.json(toItem(row as ItemRow));
   });
 
   return router;

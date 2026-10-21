@@ -12,11 +12,16 @@ export const clearRdapCache = () => (cache = undefined);
 
 // Every URL fetched here is either the fixed IANA one or a registry server listed in it, never user input.
 // `redirect: 'error'` stops a registry from bouncing us to some other host.
-async function getJson(fetchFn: typeof fetch, url: string, accept: string): Promise<unknown> {
+async function getJson(
+  fetchFn: typeof fetch,
+  url: string,
+  accept: string,
+  signal: AbortSignal,
+): Promise<unknown> {
   const res = await fetchFn(url, {
     headers: { accept },
     redirect: 'error',
-    signal: AbortSignal.timeout(TIMEOUT_MS),
+    signal,
   });
   if (res.status === 404) throw new NotFoundError();
   if (!res.ok) throw new Error(`RDAP server answered ${res.status}`);
@@ -27,9 +32,14 @@ async function getJson(fetchFn: typeof fetch, url: string, accept: string): Prom
 }
 class NotFoundError extends Error {}
 
-async function baseUrlFor(tld: string, fetchFn: typeof fetch, now: number): Promise<string> {
+async function baseUrlFor(
+  tld: string,
+  fetchFn: typeof fetch,
+  now: number,
+  signal: AbortSignal,
+): Promise<string> {
   if (!cache || now - cache.at > BOOTSTRAP_TTL_MS) {
-    const data = (await getJson(fetchFn, BOOTSTRAP_URL, 'application/json')) as Bootstrap;
+    const data = (await getJson(fetchFn, BOOTSTRAP_URL, 'application/json', signal)) as Bootstrap;
     const byTld = new Map<string, string>();
     for (const [tlds, urls] of data.services) {
       const url = urls.find((u) => u.startsWith('https://'));
@@ -47,13 +57,17 @@ export async function checkRdap(
   host: string,
   { fetch: fetchFn = fetch, now = Date.now() }: { fetch?: typeof fetch; now?: number } = {},
 ): Promise<{ expiresAt: Date }> {
-  const base = await baseUrlFor(host.slice(host.lastIndexOf('.') + 1).toLowerCase(), fetchFn, now);
+  // One deadline for the bootstrap and the registry call together, so a check never takes more than 5 s.
+  const signal = AbortSignal.timeout(TIMEOUT_MS);
+  const tld = host.slice(host.lastIndexOf('.') + 1).toLowerCase();
+  const base = await baseUrlFor(tld, fetchFn, now, signal);
   let body: { events?: { eventAction?: string; eventDate?: string }[] };
   try {
     body = (await getJson(
       fetchFn,
       `${base}domain/${encodeURIComponent(host)}`,
       'application/rdap+json',
+      signal,
     )) as typeof body;
   } catch (e) {
     if (e instanceof NotFoundError) {

@@ -1,12 +1,14 @@
 import type { AddressInfo } from 'node:net';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { createApp } from './app';
+import type { Checker } from './checks/runner';
 import { MAX_ITEMS } from './items';
 import { migrate } from './db/migrate';
 import { createPgliteDb } from './db/pglite';
 
 const db = createPgliteDb();
-const server = createApp(() => Promise.resolve(db)).listen(0);
+const checker = vi.fn<Checker>(async () => ({ expiresAt: new Date('2030-01-01T00:00:00Z') }));
+const server = createApp(() => Promise.resolve(db), checker).listen(0);
 let base = '';
 let n = 0;
 
@@ -181,5 +183,74 @@ describe('quotas and the demo account (invariants 3 and 6)', () => {
     expect((await create(cookie, { kind: 'tls', host: 'more.example.com' })).status).toBe(403);
     expect((await call(cookie, 'PATCH', `/items/${item.id}`, { label: 'x' })).status).toBe(403);
     expect((await call(cookie, 'DELETE', `/items/${item.id}`)).status).toBe(403);
+    expect((await call(cookie, 'POST', `/items/${item.id}/check`)).status).toBe(403);
+  });
+});
+
+describe('check now (1 per item per minute)', () => {
+  const errorCode = async (res: Response) =>
+    ((await res.json()) as { error: { code: string } }).error.code;
+
+  it('runs the check, stores the result and limits the frequency', async () => {
+    const cookie = await signup('checknow@example.com');
+    const item = (await create(cookie, { kind: 'tls', host: 'check.example.com' })).json;
+    checker.mockClear();
+    const first = await call(cookie, 'POST', `/items/${item.id}/check`);
+    expect(first.status).toBe(200);
+    expect(await first.json()).toMatchObject({
+      status: 'ok',
+      expiresAt: '2030-01-01T00:00:00.000Z',
+      lastError: null,
+    });
+    expect(checker).toHaveBeenCalledWith(
+      expect.objectContaining({ kind: 'tls', host: 'check.example.com' }),
+    );
+    const second = await call(cookie, 'POST', `/items/${item.id}/check`);
+    expect(second.status).toBe(429);
+    expect(await errorCode(second)).toBe('check_rate_limited');
+    expect(checker).toHaveBeenCalledTimes(1);
+  });
+
+  it('lets only one of several simultaneous requests through', async () => {
+    const cookie = await signup('checkrace@example.com');
+    const item = (await create(cookie, { kind: 'domain', host: 'race-check.example.com' })).json;
+    checker.mockClear();
+    const results = await Promise.all(
+      [1, 2, 3].map(async () => (await call(cookie, 'POST', `/items/${item.id}/check`)).status),
+    );
+    expect(results.sort()).toEqual([200, 429, 429]);
+    expect(checker).toHaveBeenCalledTimes(1);
+  });
+
+  it('stores a failed check on the item and keeps the last known expiry', async () => {
+    const cookie = await signup('checkfail@example.com');
+    const item = (await create(cookie, { kind: 'tls', host: 'fail.example.com' })).json;
+    await call(cookie, 'POST', `/items/${item.id}/check`);
+    await db.query(
+      "update items set last_checked_at = now() - interval '2 minutes' where id = $1",
+      [item.id],
+    );
+    checker.mockRejectedValueOnce(new Error('Timed out after 5 seconds'));
+    const res = await call(cookie, 'POST', `/items/${item.id}/check`);
+    expect(await res.json()).toMatchObject({
+      status: 'error',
+      lastError: 'Timed out after 5 seconds',
+      expiresAt: '2030-01-01T00:00:00.000Z',
+    });
+  });
+
+  it('rejects manual items, items of other users and unknown ids', async () => {
+    const alice = await signup('checkalice@example.com');
+    const bob = await signup('checkbob@example.com');
+    const manual = (
+      await create(alice, { kind: 'manual', label: 'API key', expiresAt: '2030-05-01T00:00:00Z' })
+    ).json;
+    const tls = (await create(alice, { kind: 'tls', host: 'alice-only.example.com' })).json;
+    checker.mockClear();
+    expect((await call(alice, 'POST', `/items/${manual.id}/check`)).status).toBe(400);
+    expect((await call(bob, 'POST', `/items/${tls.id}/check`)).status).toBe(404);
+    expect((await call(alice, 'POST', '/items/not-a-uuid/check')).status).toBe(404);
+    expect((await fetch(`${base}/items/${tls.id}/check`, { method: 'POST' })).status).toBe(401);
+    expect(checker).not.toHaveBeenCalled();
   });
 });

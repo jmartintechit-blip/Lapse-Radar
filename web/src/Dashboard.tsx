@@ -208,6 +208,19 @@ function ItemRow({
     }
   };
 
+  const [checking, setChecking] = useState(false);
+  const checkNow = async () => {
+    setError(null);
+    setChecking(true);
+    try {
+      onChanged(await api<Item>('POST', `/items/${item.id}/check`));
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setChecking(false);
+    }
+  };
+
   const status = item.expiresAt ? expiryStatus(item.expiresAt) : item.status;
 
   return (
@@ -240,6 +253,14 @@ function ItemRow({
           </>
         ) : (
           <>
+            {item.kind !== 'manual' && (
+              <>
+                <button type="button" disabled={checking} onClick={() => void checkNow()}>
+                  {checking ? 'Checking…' : 'Check now'}
+                  <span className="visually-hidden"> {item.label}</span>
+                </button>{' '}
+              </>
+            )}
             <button type="button" onClick={() => setMode('edit')}>
               Edit<span className="visually-hidden"> {item.label}</span>
             </button>{' '}
