@@ -1,6 +1,17 @@
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
-import { app } from './server/app';
+import { createApp } from './server/app';
+import { migrate } from './server/db/migrate';
+import { createPgliteDb } from './server/db/pglite';
+
+// Local dev keeps data in .data/dev (PGlite); started on the first request that needs it.
+let dev: ReturnType<typeof openDevDb> | undefined;
+const openDevDb = async () => {
+  const db = createPgliteDb('.data/dev');
+  await migrate(db);
+  return db;
+};
+const app = createApp(() => (dev ??= openDevDb()));
 
 export default defineConfig({
   root: 'web',

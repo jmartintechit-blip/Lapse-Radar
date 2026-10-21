@@ -1,0 +1,189 @@
+import { createHash, randomBytes, scrypt, timingSafeEqual } from 'node:crypto';
+import express, { Router, type Request, type RequestHandler, type Response } from 'express';
+import { z } from 'zod';
+import type { Db } from './db';
+import { allow } from './rate-limit';
+
+export type GetDb = () => Promise<Db>;
+export type AuthUser = {
+  id: string;
+  email: string;
+  thresholds: number[];
+  emailAlerts: boolean;
+  isDemo: boolean;
+};
+
+export const MAX_USERS = 100;
+const COOKIE = 'lr_session';
+const SESSION_DAYS = 7;
+const SIGNUP_LOCK = 7_060_601; // advisory lock key serialising the user-count check
+const SCRYPT = { N: 2 ** 15, r: 8, p: 1, maxmem: 64 * 1024 * 1024 };
+
+const derive = (password: string, salt: Buffer, params: typeof SCRYPT) =>
+  new Promise<Buffer>((resolve, reject) =>
+    scrypt(password, salt, 32, params, (err, key) => (err ? reject(err) : resolve(key))),
+  );
+
+// Stored as scrypt$N$r$p$salt$hash so the cost can be raised later without breaking old hashes.
+export async function hashPassword(password: string) {
+  const salt = randomBytes(16);
+  const key = await derive(password, salt, SCRYPT);
+  const { N, r, p } = SCRYPT;
+  return `scrypt$${N}$${r}$${p}$${salt.toString('base64')}$${key.toString('base64')}`;
+}
+
+export async function verifyPassword(password: string, stored: string) {
+  const [alg, N, r, p, salt, hash] = stored.split('$');
+  if (alg !== 'scrypt' || !salt || !hash) return false;
+  const expected = Buffer.from(hash, 'base64');
+  const key = await derive(password, Buffer.from(salt, 'base64'), {
+    N: Number(N),
+    r: Number(r),
+    p: Number(p),
+    maxmem: SCRYPT.maxmem,
+  });
+  return key.length === expected.length && timingSafeEqual(key, expected);
+}
+
+const sha256 = (value: string) => createHash('sha256').update(value).digest('hex');
+
+// Unknown emails are checked against this hash too, so login time does not reveal which exist.
+let dummyHash: Promise<string> | undefined;
+const getDummyHash = () => (dummyHash ??= hashPassword(randomBytes(16).toString('hex')));
+
+const email = z.string().trim().toLowerCase().max(254).pipe(z.email());
+const SignupInput = z.object({ email, password: z.string().min(10).max(128) });
+const LoginInput = z.object({ email, password: z.string().min(1).max(128) });
+
+const fail = (res: Response, status: number, code: string, message: string) =>
+  res.status(status).json({ error: { code, message } });
+
+// Netlify sets this header at its edge; the socket address is the fallback for local runs.
+const clientIp = (req: Request) =>
+  req.get('x-nf-client-connection-ip') ?? req.socket.remoteAddress ?? 'unknown';
+
+const cookieOptions = { httpOnly: true, secure: true, sameSite: 'lax', path: '/' } as const;
+
+const sessionToken = (req: Request) =>
+  req.headers.cookie
+    ?.split(';')
+    .map((c) => c.trim())
+    .find((c) => c.startsWith(`${COOKIE}=`))
+    ?.slice(COOKIE.length + 1);
+
+async function startSession(db: Db, res: Response, userId: string) {
+  // Opportunistic purge of expired rows; the scheduled function also does it (T15).
+  await db.query('delete from sessions where expires_at < now()');
+  await db.query("delete from rate_limits where window_start < now() - interval '1 day'");
+  const token = randomBytes(32).toString('base64url');
+  // Only the hash is stored, so a database leak cannot be replayed as a cookie.
+  await db.query(
+    `insert into sessions (user_id, token_hash, expires_at)
+     values ($1, $2, now() + make_interval(days => $3::int))`,
+    [userId, sha256(token), SESSION_DAYS],
+  );
+  res.cookie(COOKIE, token, { ...cookieOptions, maxAge: SESSION_DAYS * 86_400_000 });
+}
+
+type UserRow = {
+  id: string;
+  email: string;
+  thresholds: number[];
+  email_alerts: boolean;
+  is_demo: boolean;
+};
+const toUser = (r: UserRow): AuthUser => ({
+  id: r.id,
+  email: r.email,
+  thresholds: r.thresholds,
+  emailAlerts: r.email_alerts,
+  isDemo: r.is_demo,
+});
+
+// Puts the signed-in user on res.locals.user; every other route filters by that id.
+export const requireUser =
+  (getDb: GetDb): RequestHandler =>
+  async (req, res, next) => {
+    const token = sessionToken(req);
+    const rows = token
+      ? await (
+          await getDb()
+        ).query<UserRow>(
+          `select u.id, u.email, u.thresholds, u.email_alerts, u.is_demo
+           from sessions s join users u on u.id = s.user_id
+           where s.token_hash = $1 and s.expires_at > now()`,
+          [sha256(token)],
+        )
+      : [];
+    if (!rows[0]) return void fail(res, 401, 'unauthenticated', 'Sign in to continue');
+    res.locals.user = toUser(rows[0]);
+    next();
+  };
+
+export function authRouter(getDb: GetDb) {
+  const router = Router();
+  // JSON only: a form post from another site is never parsed, and SameSite=Lax withholds the cookie.
+  router.use('/auth', express.json({ limit: '10kb' }));
+
+  router.post('/auth/signup', async (req, res) => {
+    const db = await getDb();
+    if (!(await allow(db, `signup:${clientIp(req)}`, 5, 3600)))
+      return void fail(res, 429, 'rate_limited', 'Too many attempts, try again later');
+    const input = SignupInput.safeParse(req.body);
+    if (!input.success)
+      return void fail(res, 400, 'invalid_input', 'Use a valid email and 10 to 128 characters');
+
+    const hash = await hashPassword(input.data.password);
+    const result = await db.transaction(async (tx) => {
+      await tx.query('select pg_advisory_xact_lock($1::bigint)', [SIGNUP_LOCK]);
+      const [count] = await tx.query<{ n: number }>('select count(*)::int as n from users');
+      if ((count?.n ?? 0) >= MAX_USERS) return 'full' as const;
+      const rows = await tx.query<{ id: string }>(
+        `insert into users (email, password_hash) values ($1, $2)
+         on conflict (email) do nothing returning id`,
+        [input.data.email, hash],
+      );
+      return rows[0]?.id ?? ('taken' as const);
+    });
+    if (result === 'full') return void fail(res, 429, 'user_limit', 'Registration is full for now');
+    if (result === 'taken') return void fail(res, 409, 'email_taken', 'Email already registered');
+    await startSession(db, res, result);
+    res.status(201).json({ id: result, email: input.data.email });
+  });
+
+  router.post('/auth/login', async (req, res) => {
+    const db = await getDb();
+    const input = LoginInput.safeParse(req.body);
+    if (!input.success) return void fail(res, 400, 'invalid_input', 'Enter email and password');
+    const { email, password } = input.data;
+    const ip = clientIp(req);
+    if (
+      !(await allow(db, `login:${ip}`, 50, 900)) ||
+      !(await allow(db, `login:${ip}:${email}`, 10, 900))
+    )
+      return void fail(res, 429, 'rate_limited', 'Too many attempts, try again later');
+
+    const [user] = await db.query<{ id: string; password_hash: string }>(
+      'select id, password_hash from users where email = $1',
+      [email],
+    );
+    const ok = await verifyPassword(password, user?.password_hash ?? (await getDummyHash()));
+    if (!user || !ok)
+      return void fail(res, 401, 'invalid_credentials', 'Incorrect email or password');
+    await startSession(db, res, user.id);
+    res.json({ id: user.id, email });
+  });
+
+  router.post('/auth/logout', async (req, res) => {
+    const token = sessionToken(req);
+    if (token)
+      await (await getDb()).query('delete from sessions where token_hash = $1', [sha256(token)]);
+    res.clearCookie(COOKIE, cookieOptions).status(204).end();
+  });
+
+  router.get('/me', requireUser(getDb), (_req, res) => {
+    res.json(res.locals.user);
+  });
+
+  return router;
+}
