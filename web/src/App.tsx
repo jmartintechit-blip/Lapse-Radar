@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, Route, Routes } from 'react-router';
 import { AuthForm } from './AuthForm';
 import { AuthProvider, RequireUser, useAuth } from './auth';
+import { Dashboard } from './Dashboard';
 
 type ApiStatus = 'loading' | 'ok' | 'error';
 
@@ -29,19 +30,6 @@ function Home() {
           </>
         )}
       </nav>
-    </main>
-  );
-}
-
-function Dashboard() {
-  const { user, logout } = useAuth();
-  return (
-    <main>
-      <h1>Dashboard</h1>
-      <p>Signed in as {user?.email}</p>
-      <button type="button" onClick={() => void logout()}>
-        Sign out
-      </button>
     </main>
   );
 }

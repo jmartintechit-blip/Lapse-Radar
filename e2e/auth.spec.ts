@@ -1,10 +1,12 @@
 import { expect, test } from '@playwright/test';
+import { ownClientIp } from './helpers';
 
 const password = 'correct horse battery';
 
 test('sign up lands on the dashboard, sign out returns to login, sign in works again', async ({
   page,
 }) => {
+  await ownClientIp(page);
   const email = `e2e-${Date.now()}@example.com`;
   await page.goto('/signup');
   await page.getByLabel('Email').fill(email);
@@ -29,6 +31,7 @@ test('sign up lands on the dashboard, sign out returns to login, sign in works a
 test('the dashboard redirects anonymous visitors and a wrong password shows one generic error', async ({
   page,
 }) => {
+  await ownClientIp(page);
   await page.goto('/dashboard');
   await expect(page).toHaveURL(/\/login$/);
   await page.getByLabel('Email').fill('nobody@example.com');
