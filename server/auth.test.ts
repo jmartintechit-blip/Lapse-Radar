@@ -47,7 +47,7 @@ describe('password hashing', () => {
   });
 });
 
-describe('sessions (invariant 7)', () => {
+describe('sessions', () => {
   it('stores only the token hash and sets a hardened cookie', async () => {
     const res = await signup('Ana@Example.com');
     expect(res.status).toBe(201);
@@ -131,7 +131,7 @@ describe('login', () => {
   });
 });
 
-describe('signup validation and quotas (invariant 3)', () => {
+describe('signup validation and quotas', () => {
   it('rejects a duplicate email, a short password and malformed bodies', async () => {
     await signup('dup@example.com');
     expect((await signup('dup@example.com')).status).toBe(409);

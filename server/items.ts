@@ -8,7 +8,7 @@ import { checkItem, type Checker, type DueItem } from './checks/runner';
 export const MAX_ITEMS = 10;
 
 // Syntax check only: lowercase ASCII labels, a TLD with a letter (so no IP literals), no port or path.
-// shortcut: the real anti-SSRF defence (DNS resolution, private ranges) lives in the checker, T11.
+// shortcut: the real anti-SSRF defence (DNS resolution, private ranges) lives in the checker (checks/ssrf.ts).
 const HOST = /^(?=.{1,253}$)([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z][a-z0-9-]{0,61}[a-z0-9]$/;
 const INTERNAL_SUFFIX = /\.(local|localhost|internal|lan|home|corp|invalid|test|example|arpa)$/;
 const host = z
@@ -71,7 +71,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export function itemsRouter(getDb: GetDb, check?: Checker) {
   const router = Router();
   router.use('/items', requireUser(getDb), express.json({ limit: '10kb' }));
-  // The demo account is read-only (invariant 6).
+  // The demo account is read-only.
   router.use('/items', (req, res, next) =>
     req.method !== 'GET' && user(res).isDemo
       ? void fail(res, 403, 'demo_readonly', 'The demo account is read-only')

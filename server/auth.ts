@@ -83,7 +83,7 @@ const sessionToken = (req: Request) =>
     ?.slice(COOKIE.length + 1);
 
 async function startSession(db: Db, res: Response, userId: string) {
-  // Opportunistic purge of expired rows; the scheduled function also does it (T15).
+  // Opportunistic purge of expired rows; the hourly scheduled run does the same (server/scheduled.ts).
   await db.query('delete from sessions where expires_at < now()');
   await db.query("delete from rate_limits where window_start < now() - interval '1 day'");
   const token = randomBytes(32).toString('base64url');
@@ -147,7 +147,10 @@ export function authRouter(getDb: GetDb) {
     const hash = await hashPassword(input.data.password);
     const result = await db.transaction(async (tx) => {
       await tx.query('select pg_advisory_xact_lock($1::bigint)', [SIGNUP_LOCK]);
-      const [count] = await tx.query<{ n: number }>('select count(*)::int as n from users');
+      // The demo account is a row in users but is not a person: it does not use up a place.
+      const [count] = await tx.query<{ n: number }>(
+        'select count(*)::int as n from users where not is_demo',
+      );
       if ((count?.n ?? 0) >= MAX_USERS) return 'full' as const;
       const rows = await tx.query<{ id: string }>(
         `insert into users (email, password_hash) values ($1, $2)
@@ -226,11 +229,12 @@ export function authRouter(getDb: GetDb) {
       return void fail(res, 401, 'invalid_credentials', 'Incorrect password');
     await db.transaction(async (tx) => {
       await tx.query('delete from users where id = $1', [me.id]);
-      // Login counters are keyed by email; leave nothing of the user behind.
-      await tx.query('delete from rate_limits where key like $1 or key = $2', [
-        `login:%:${me.email}`,
-        `delete:${me.id}`,
-      ]);
+      // Login counters are keyed by IP and email, write and delete counters by user id: remove them all.
+      const email = me.email.replace(/[\\%_]/g, '\\$&'); // escape LIKE wildcards ("_" is common in emails)
+      await tx.query(
+        "delete from rate_limits where key like $1 escape '\\' or key = any($2::text[])",
+        [`login:%:${email}`, [`delete:${me.id}`, `items:${me.id}`]],
+      );
     });
     res.clearCookie(COOKIE, cookieOptions).status(204).end();
   });

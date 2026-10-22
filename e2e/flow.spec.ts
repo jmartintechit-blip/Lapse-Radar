@@ -24,7 +24,7 @@ test('full flow: sign up, add items, alerts in the inbox, renewal re-arms, delet
   const alerts = page.getByRole('region', { name: /^Alerts/ });
   await expect(page.getByText('No alerts yet.')).toBeVisible();
 
-  // Far away: no alert. Close: one alert for the most urgent threshold reached (invariant 1).
+  // Far away: no alert. Close: one alert for the most urgent threshold reached.
   await page.getByLabel('Type').selectOption('manual');
   await page.getByLabel('Label', { exact: true }).fill('Far token');
   await page.getByLabel('Expires on').fill(inDays(200).slice(0, 10));

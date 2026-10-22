@@ -92,7 +92,7 @@ Set these as environment variables (never commit them):
 
 Honest list, on purpose:
 
-- **Demo scale.** At most 100 accounts, 10 items per account. The free tiers it targets (Netlify, Neon, Resend) set the ceiling, and Netlify's free credits are shared across a whole account.
+- **Demo scale.** At most 100 accounts (the demo account does not count), 10 items per account. The free tiers it targets (Netlify, Neon, Resend) set the ceiling, and Netlify's free credits are shared across a whole account.
 - **Email.** Without a verified sending domain Resend only delivers to the account owner's own address, so alert emails to other users fail (and are recorded as failed). Sign-up does not verify email addresses. Failed sends are not retried.
 - **RDAP coverage.** Registry expiry is read automatically only for TLDs listed in the IANA RDAP bootstrap; for the others (for example `.es`, `.io`, `.eu`, `.de` at the time of writing) use a manual item. Some registries do not expose an expiry event.
 - **The scheduled run** shares one database transaction for checks, alerts and emails. If the platform kills it before the commit, the work is lost and an email may be sent twice. A "check now" on an item that the hourly run is checking waits for it.

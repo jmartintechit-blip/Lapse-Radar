@@ -1,7 +1,7 @@
 import type { Db } from './db';
 
 // Creates the alerts that are due and returns how many are new. Safe to run any number of times, also
-// concurrently: the unique key (item, threshold, expiry date) makes a repeat a no-op (invariant 1).
+// concurrently: the unique key (item, threshold, expiry date) makes a repeat a no-op.
 //
 // For each item the threshold is the smallest one (the user's list plus 0 = expired) that its days
 // remaining have reached, so an item added when it is already 5 days from expiry gets one alert (7),

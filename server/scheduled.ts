@@ -23,7 +23,7 @@ export type ScheduledResult =
 const EMAIL_DEADLINE_MS = 28_000;
 
 // One hourly run: due checks, then alerts. The transaction-level advisory lock keeps two runs from
-// overlapping (invariant 5): a second run finds it taken and leaves at once. The whole run shares
+// overlapping: a second run finds it taken and leaves at once. The whole run shares
 // one transaction, so the lock is freed by commit, rollback or a dropped connection, never leaked.
 // shortcut: the transaction holds row locks on checked items until it ends (<= 25 s), so a
 // concurrent "check now" on the same item waits; move to a dedicated lock connection if that hurts.
@@ -38,6 +38,9 @@ export function runScheduled(
       [SCHEDULED_LOCK_KEY],
     );
     if (!lock?.locked) return { skipped: true };
+    // Housekeeping: expired sessions and old rate-limit counters (the Privacy page promises about a day).
+    await tx.query('delete from sessions where expires_at < now()');
+    await tx.query("delete from rate_limits where window_start < now() - interval '1 day'");
     const { checked, ok, failed, skipped: pending } = await runDueChecks(tx, options);
     const alerts = await evaluateAlerts(tx);
     // Without a Resend key alerts stay unsent and go out once the key exists.

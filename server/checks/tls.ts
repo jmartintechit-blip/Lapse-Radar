@@ -8,7 +8,7 @@ export type TlsResult = { expiresAt: Date; trusted: boolean; trustError: string 
 export type Connect = (options: tls.ConnectionOptions) => tls.TLSSocket;
 
 // Connects to the resolved public IP (never to the name again, so DNS cannot change between check and
-// connect) with SNI set to the host name. Port and timeout are fixed: invariant 4.
+// connect) with SNI set to the host name. Port and timeout are fixed: they are not caller input.
 // The handshake is not aborted on a bad certificate: an expired or mismatched cert is exactly what we
 // report, via `trusted`/`trustError`.
 export function checkTls(

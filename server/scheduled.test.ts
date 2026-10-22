@@ -46,6 +46,23 @@ describe('runScheduled', () => {
     });
   });
 
+  it('purges expired sessions and old rate-limit counters', async () => {
+    await db.query(
+      `insert into sessions (user_id, token_hash, expires_at) values
+       ($1, 'old', now() - interval '1 hour'), ($1, 'live', now() + interval '1 hour')`,
+      [userId],
+    );
+    await db.query(
+      `insert into rate_limits (key, window_start, count) values
+       ('old', now() - interval '2 days', 1), ('new', now(), 1)`,
+    );
+    await runScheduled(db);
+    expect((await db.query('select token_hash from sessions')).map((r) => r.token_hash)).toEqual([
+      'live',
+    ]);
+    expect((await db.query('select key from rate_limits')).map((r) => r.key)).toEqual(['new']);
+  });
+
   it('leaves at once, doing no work, when another run holds the lock', async () => {
     const queries: string[] = [];
     const busy: Db = {

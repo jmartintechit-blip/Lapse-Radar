@@ -62,7 +62,7 @@ describe('alerts and settings API', () => {
     });
     expect(await alerts(other)).toEqual([]); // isolation: the other user sees nothing
 
-    // Adding the same item again or editing it must not duplicate the alert (invariant 1).
+    // Adding the same item again or editing it must not duplicate the alert.
     await call(owner, 'PATCH', `/items/${(mine[0] as Json).itemId}`, { label: 'Token 2' });
     expect(await alerts(owner)).toHaveLength(1);
   });

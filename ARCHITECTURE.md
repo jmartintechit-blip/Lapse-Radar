@@ -36,7 +36,7 @@ flowchart TB
 ## Why these choices
 
 - **Express inside one Netlify Function** (via `serverless-http` and `@netlify/aws-lambda-compat`): one familiar app instead of one function per route, and the same app runs under Vite in development, so a single command starts everything.
-- **Postgres, no ORM.** The data is relational and a few queries (alert creation, quota, rate limits) are clearest as SQL. The `Db` interface (`query`, `transaction`, `close`) has two drivers: `pg` for Neon and PGlite for development and tests. The trade-off: PGlite and `pg` can differ in rare details, so production behaviour was checked against real Postgres where it mattered (for example the advisory lock).
+- **Postgres, no ORM.** The data is relational and a few queries (alert creation, quota, rate limits) are clearest as SQL. The `Db` interface (`query`, `transaction`, `close`) has two drivers: `pg` for Neon and PGlite for development and tests. The trade-off: PGlite and `pg` can differ in rare details, so the one piece that PGlite cannot test (the advisory lock between two connections) was verified by hand against a real Neon database; no automated test covers it.
 - **Everything time-related is UTC.** Dates are `timestamptz`. "Days left" is the number of whole days rounded up, computed in one pure function that is tested at daylight-saving boundaries.
 
 ## Data model

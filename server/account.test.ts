@@ -74,13 +74,22 @@ describe('DELETE /me', () => {
       expect(await count(table, table === 'users' ? 'id = $1' : 'user_id = $1', [id]), table).toBe(
         0,
       );
-    expect(await count('rate_limits', "key like '%gone@example.com'")).toBe(0);
+    expect(
+      await count('rate_limits', "key like '%gone@example.com' or key like '%" + id + "'"),
+    ).toBe(0);
     expect((await fetch(`${base}/me`, { headers: { cookie: gone } })).status).toBe(401);
     // The other account keeps its data.
     expect(
       await count('items', "user_id = (select id from users where email = 'other@example.com')"),
     ).toBe(1);
     expect((await post('/auth/login', { email: 'other@example.com', password })).status).toBe(200);
+  });
+
+  it('does not clear the counters of another email that only matches a "_" wildcard', async () => {
+    const underscore = await signup('a_b@example.com');
+    await post('/auth/login', { email: 'axb@example.com', password: 'bad password!' });
+    expect((await del(underscore, { password })).status).toBe(204);
+    expect(await count('rate_limits', "key like 'login:%:axb@example.com'")).toBe(1);
   });
 
   it('is refused for the demo account', async () => {

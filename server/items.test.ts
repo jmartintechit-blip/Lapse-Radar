@@ -141,7 +141,7 @@ describe('items API', () => {
   });
 });
 
-describe('isolation between two users (invariant 2)', () => {
+describe('isolation between two users', () => {
   it('answers 404 for every operation on someone else’s item and never lists it', async () => {
     const alice = await signup('alice@example.com');
     const bob = await signup('bob@example.com');
@@ -159,7 +159,7 @@ describe('isolation between two users (invariant 2)', () => {
   });
 });
 
-describe('quotas and the demo account (invariants 3 and 6)', () => {
+describe('quotas and the demo account', () => {
   it('caps items per user, even with simultaneous creates', async () => {
     const cookie = await signup('cap@example.com');
     for (let i = 0; i < MAX_ITEMS - 1; i++)

@@ -57,7 +57,7 @@ describe('demo account', () => {
     expect(await db.query('select 1 from users where is_demo')).toHaveLength(1);
   });
 
-  it('cannot change anything (invariant 6)', async () => {
+  it('cannot change anything', async () => {
     const { cookie } = await enter();
     const attempts: [string, string, unknown?][] = [
       ['POST', '/items', { kind: 'manual', label: 'x', expiresAt: '2030-01-01T00:00:00Z' }],

@@ -35,7 +35,7 @@ type AlertRow = {
 export function alertsRouter(getDb: GetDb) {
   const router = Router();
   router.use(['/alerts', '/settings'], requireUser(getDb), express.json({ limit: '10kb' }));
-  // The demo account is read-only (invariant 6).
+  // The demo account is read-only.
   router.use(['/alerts', '/settings'], (req, res, next) =>
     req.method !== 'GET' && user(res).isDemo
       ? void fail(res, 403, 'demo_readonly', 'The demo account is read-only')
