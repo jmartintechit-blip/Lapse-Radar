@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Db } from './db';
 import { migrate } from './db/migrate';
 import { createPgliteDb } from './db/pglite';
@@ -25,10 +25,25 @@ describe('runScheduled', () => {
       [userId],
     );
     const check = () => Promise.resolve({ expiresAt: new Date(Date.now() + 3 * 86_400_000) });
-    const first = await runScheduled(db, { check });
-    expect(first).toEqual({ skipped: false, checked: 1, ok: 1, failed: 0, pending: 0, alerts: 1 });
+    const send = vi.fn().mockResolvedValue(undefined);
+    const first = await runScheduled(db, { check, send });
+    expect(first).toEqual({
+      skipped: false,
+      checked: 1,
+      ok: 1,
+      failed: 0,
+      pending: 0,
+      alerts: 1,
+      emailed: 1,
+      emailFailed: 0,
+    });
+    expect(send).toHaveBeenCalledOnce();
     // Nothing is due any more and the alert already exists: a second run does nothing.
-    expect(await runScheduled(db, { check })).toMatchObject({ checked: 0, alerts: 0 });
+    expect(await runScheduled(db, { check, send })).toMatchObject({
+      checked: 0,
+      alerts: 0,
+      emailed: 0,
+    });
   });
 
   it('leaves at once, doing no work, when another run holds the lock', async () => {
