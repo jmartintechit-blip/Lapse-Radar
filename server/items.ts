@@ -1,5 +1,6 @@
 import express, { Router, type Response } from 'express';
 import { z } from 'zod';
+import { evaluateAlerts } from './alerts';
 import { requireUser, type AuthUser, type GetDb } from './auth';
 import { checkItem, type Checker, type DueItem } from './checks/runner';
 
@@ -123,6 +124,7 @@ export function itemsRouter(getDb: GetDb, check?: Checker) {
     if (result === 'full')
       return void fail(res, 429, 'item_limit', `You can track up to ${MAX_ITEMS} items`);
     if (result === 'taken') return void fail(res, 409, 'duplicate', 'You already track this host');
+    await evaluateAlerts(await getDb(), { userId: user(res).id }); // a manual item may already be close
     res.status(201).json(toItem(result));
   });
 
@@ -161,6 +163,7 @@ export function itemsRouter(getDb: GetDb, check?: Checker) {
         p.expiresAt ?? current.expires_at,
       ],
     );
+    await evaluateAlerts(db, { userId: user(res).id });
     res.json(toItem(row as ItemRow));
   });
 
@@ -197,6 +200,7 @@ export function itemsRouter(getDb: GetDb, check?: Checker) {
     if (claim === 'recent')
       return void fail(res, 429, 'check_rate_limited', 'You can check an item once per minute');
     await checkItem(db, claim, check);
+    await evaluateAlerts(db, { userId: user(res).id });
     const [row] = await db.query<ItemRow>(`select ${COLUMNS} from items where id = $1`, [claim.id]);
     res.json(toItem(row as ItemRow));
   });

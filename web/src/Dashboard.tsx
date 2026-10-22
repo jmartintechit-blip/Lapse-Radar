@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { daysRemaining, expiryStatus } from '../../shared/expiry';
 import { api, errorMessage } from './api';
+import { Alerts } from './Alerts';
 import { useAuth } from './auth';
+import { Settings } from './Settings';
 
 type Item = {
   id: string;
@@ -280,7 +282,9 @@ export function Dashboard() {
   const { user, logout } = useAuth();
   const [items, setItems] = useState<Item[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [version, setVersion] = useState(0);
   const readOnly = user?.isDemo ?? true;
+  const itemsChanged = () => setVersion((v) => v + 1);
 
   const load = useCallback(async () => {
     setError(null);
@@ -331,7 +335,10 @@ export function Dashboard() {
                 key={item.id}
                 item={item}
                 readOnly={readOnly}
-                onChanged={(saved) => setItems(items.map((i) => (i.id === saved.id ? saved : i)))}
+                onChanged={(saved) => {
+                  setItems(items.map((i) => (i.id === saved.id ? saved : i)));
+                  itemsChanged();
+                }}
                 onDeleted={(id) => setItems(items.filter((i) => i.id !== id))}
               />
             ))}
@@ -342,8 +349,16 @@ export function Dashboard() {
       {readOnly ? (
         <p>The demo account is read-only.</p>
       ) : error ? null : (
-        <AddItemForm onAdded={(item) => setItems((items) => [...(items ?? []), item])} />
+        <AddItemForm
+          onAdded={(item) => {
+            setItems((items) => [...(items ?? []), item]);
+            itemsChanged();
+          }}
+        />
       )}
+
+      <Alerts readOnly={readOnly} version={version} />
+      <Settings readOnly={readOnly} />
     </main>
   );
 }

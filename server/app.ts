@@ -1,4 +1,5 @@
 import express, { type ErrorRequestHandler } from 'express';
+import { alertsRouter } from './alerts-router';
 import { authRouter, type GetDb } from './auth';
 import { edgeRouter } from './edge-routes';
 import type { Checker } from './checks/runner';
@@ -16,6 +17,7 @@ export function createApp(getDb: GetDb, check?: Checker) {
   app.use('/api/_edge', edgeRouter);
   app.use('/api', authRouter(getDb));
   app.use('/api', itemsRouter(getDb, check));
+  app.use('/api', alertsRouter(getDb));
 
   app.use('/api', (_req, res) => {
     res.status(404).json({ error: { code: 'not_found', message: 'Not found' } });
