@@ -1,56 +1,10 @@
-import { useEffect, useState } from 'react';
-import { Link, Route, Routes, useNavigate } from 'react-router';
+import { Route, Routes } from 'react-router';
 import { AuthForm } from './AuthForm';
-import { AuthProvider, RequireUser, useAuth } from './auth';
+import { AuthProvider, RequireUser } from './auth';
 import { Dashboard } from './Dashboard';
+import { Home } from './Home';
 import { Privacy } from './Privacy';
 import { SiteHeader } from './SiteHeader';
-
-type ApiStatus = 'loading' | 'ok' | 'error';
-
-function Home() {
-  const [status, setStatus] = useState<ApiStatus>('loading');
-  const { user, authenticate } = useAuth();
-  const navigate = useNavigate();
-  const [demoError, setDemoError] = useState<string | null>(null);
-
-  useEffect(() => {
-    fetch('/api/health')
-      .then((res) => setStatus(res.ok ? 'ok' : 'error'))
-      .catch(() => setStatus('error'));
-  }, []);
-
-  return (
-    <main>
-      <h1>Lapse Radar</h1>
-      <p>Know what expires before it breaks.</p>
-      <p role="status">API status: {status}</p>
-      <nav aria-label="Account">
-        {user ? (
-          <Link to="/dashboard">Go to dashboard</Link>
-        ) : (
-          <>
-            <Link to="/login">Sign in</Link> · <Link to="/signup">Create account</Link> ·{' '}
-            <button
-              type="button"
-              onClick={() =>
-                void authenticate('demo', '', '').then((error) =>
-                  error ? setDemoError(error) : navigate('/dashboard'),
-                )
-              }
-            >
-              Try the read-only demo
-            </button>
-          </>
-        )}
-      </nav>
-      {demoError && <p role="alert">{demoError}</p>}
-      <p>
-        <Link to="/privacy">Privacy</Link>
-      </p>
-    </main>
-  );
-}
 
 function NotFound() {
   return (

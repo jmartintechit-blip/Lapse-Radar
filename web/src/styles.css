@@ -183,3 +183,102 @@ ul {
   clip-path: inset(50%);
   white-space: nowrap;
 }
+
+/* Landing */
+.hero {
+  display: grid;
+  gap: 2rem;
+  align-items: center;
+  padding: 2rem 0;
+}
+@media (min-width: 52rem) {
+  .hero {
+    grid-template-columns: 1.1fr 1fr;
+    padding: 3.5rem 0 2.5rem;
+  }
+}
+.lead {
+  color: var(--muted);
+  font-size: 1.125rem;
+  max-width: 34rem;
+}
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-top: 1.25rem;
+}
+.cta {
+  display: inline-block;
+  font: inherit;
+  font-weight: 600;
+  text-decoration: none;
+  background: var(--accent);
+  color: var(--accent-ink);
+  border: 1px solid var(--accent);
+  border-radius: 0.5rem;
+  padding: 0.65rem 1.1rem;
+  cursor: pointer;
+}
+.cta.ghost {
+  background: transparent;
+  color: var(--text);
+  border-color: var(--line);
+}
+.cta.ghost:hover {
+  border-color: var(--accent);
+}
+.steps {
+  display: grid;
+  gap: 0.75rem;
+  max-width: 44rem;
+  padding-left: 1.4rem;
+}
+.site-footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 3rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--line);
+  font-size: 0.9rem;
+}
+
+.radar {
+  width: 100%;
+  max-width: 30rem;
+  margin: 0 auto;
+}
+.radar-line {
+  fill: none;
+  stroke: var(--line);
+  stroke-width: 1;
+}
+.radar-label {
+  fill: var(--muted);
+  font: 11px var(--font-mono);
+}
+.radar-sweep {
+  transform-origin: 200px 200px;
+  animation: radar-spin 8s linear infinite;
+}
+@keyframes radar-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .radar-sweep {
+    animation: none;
+    transform: rotate(40deg);
+  }
+}
+.blip-ok {
+  fill: var(--ok);
+}
+.blip-soon {
+  fill: var(--soon);
+}
+.blip-critical {
+  fill: var(--critical);
+}
