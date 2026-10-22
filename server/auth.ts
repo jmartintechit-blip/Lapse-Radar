@@ -2,6 +2,7 @@ import { createHash, randomBytes, scrypt, timingSafeEqual } from 'node:crypto';
 import express, { Router, type Request, type RequestHandler, type Response } from 'express';
 import { z } from 'zod';
 import type { Db } from './db';
+import { resetDemo } from './demo';
 import { allow } from './rate-limit';
 
 export type GetDb = () => Promise<Db>;
@@ -172,6 +173,15 @@ export function authRouter(getDb: GetDb) {
       return void fail(res, 401, 'invalid_credentials', 'Incorrect email or password');
     await startSession(db, res, user.id);
     res.json({ id: user.id, email });
+  });
+
+  // One click into the read-only demo account; its data is rebuilt each time (see demo.ts).
+  router.post('/auth/demo', async (req, res) => {
+    const db = await getDb();
+    if (!(await allow(db, `demo:${clientIp(req)}`, 20, 3600)))
+      return void fail(res, 429, 'rate_limited', 'Too many attempts, try again later');
+    await startSession(db, res, await resetDemo(db));
+    res.status(204).end();
   });
 
   router.post('/auth/logout', async (req, res) => {

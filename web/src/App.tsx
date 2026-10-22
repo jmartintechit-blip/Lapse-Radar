@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link, Route, Routes } from 'react-router';
+import { Link, Route, Routes, useNavigate } from 'react-router';
 import { AuthForm } from './AuthForm';
 import { AuthProvider, RequireUser, useAuth } from './auth';
 import { Dashboard } from './Dashboard';
@@ -8,7 +8,9 @@ type ApiStatus = 'loading' | 'ok' | 'error';
 
 function Home() {
   const [status, setStatus] = useState<ApiStatus>('loading');
-  const { user } = useAuth();
+  const { user, authenticate } = useAuth();
+  const navigate = useNavigate();
+  const [demoError, setDemoError] = useState<string | null>(null);
 
   useEffect(() => {
     fetch('/api/health')
@@ -26,10 +28,21 @@ function Home() {
           <Link to="/dashboard">Go to dashboard</Link>
         ) : (
           <>
-            <Link to="/login">Sign in</Link> · <Link to="/signup">Create account</Link>
+            <Link to="/login">Sign in</Link> · <Link to="/signup">Create account</Link> ·{' '}
+            <button
+              type="button"
+              onClick={() =>
+                void authenticate('demo', '', '').then((error) =>
+                  error ? setDemoError(error) : navigate('/dashboard'),
+                )
+              }
+            >
+              Try the read-only demo
+            </button>
           </>
         )}
       </nav>
+      {demoError && <p role="alert">{demoError}</p>}
     </main>
   );
 }

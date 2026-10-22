@@ -7,7 +7,7 @@ export type User = { id: string; email: string; isDemo: boolean };
 type AuthState = {
   user: User | null | undefined;
   authenticate: (
-    mode: 'login' | 'signup',
+    mode: 'login' | 'signup' | 'demo',
     email: string,
     password: string,
   ) => Promise<string | null>;
@@ -44,10 +44,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const authenticate: AuthState['authenticate'] = async (mode, email, password) => {
     try {
-      const res = await send(mode === 'login' ? '/auth/login' : '/auth/signup', {
-        email,
-        password,
-      });
+      const res = await send(`/auth/${mode}`, { email, password });
       if (!res.ok) {
         const body = (await res.json().catch(() => null)) as {
           error?: { message?: string };
