@@ -63,6 +63,13 @@ describe('cross-site writes', () => {
   });
 });
 
+describe('test endpoints', () => {
+  it('are not served unless EDGE_ROUTES=1', async () => {
+    for (const path of ['/_edge/binary', '/_edge/no-content', '/_edge/rate-limited'])
+      expect((await fetch(`${base}${path}`)).status, path).toBe(404);
+  });
+});
+
 describe('error responses', () => {
   it('do not leak parser or server details', async () => {
     const res = await fetch(`${base}/auth/login`, {

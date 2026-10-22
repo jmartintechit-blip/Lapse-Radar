@@ -75,11 +75,14 @@ Local checks never touch the network unless you run the live tests: `LIVE_CHECKS
 
 Set these as environment variables (never commit them):
 
-| Variable         | Needed | Purpose                                                                             |
-| ---------------- | ------ | ----------------------------------------------------------------------------------- |
-| `DATABASE_URL`   | yes    | PostgreSQL connection string (Neon works). Apply the schema with `npm run migrate`. |
-| `RESEND_API_KEY` | no     | Without it alerts stay in the app and unsent emails wait until a key exists.        |
-| `EMAIL_FROM`     | no     | Sender address; defaults to Resend's shared `onboarding@resend.dev`.                |
+| Variable         | Needed | Purpose                                                                                                        |
+| ---------------- | ------ | -------------------------------------------------------------------------------------------------------------- |
+| `DATABASE_URL`   | yes    | PostgreSQL connection string (Neon works; use `sslmode=verify-full`). Apply the schema with `npm run migrate`. |
+| `RESEND_API_KEY` | no     | Without it alerts stay in the app and unsent emails wait until a key exists.                                   |
+| `EMAIL_FROM`     | no     | Sender address; defaults to Resend's shared `onboarding@resend.dev`.                                           |
+| `EDGE_ROUTES`    | no     | Set to `1` only to run the adapter edge-case checks; never in production.                                      |
+
+`npm run email:test` sends one email to Resend's test inbox (`delivered@resend.dev`) to check your key.
 
 `netlify.toml` builds the site and sets the security headers. Production is served from the `release` branch.
 
@@ -100,7 +103,7 @@ Honest list, on purpose:
 - **The scheduled run** shares one database transaction for checks, alerts and emails. If the platform kills it before the commit, the work is lost and an email may be sent twice. A "check now" on an item that the hourly run is checking waits for it.
 - **Scrypt cost** is N=2^15, r=8, p=1, below the highest OWASP recommendation; the session cookie has no `__Host-` prefix.
 - **Sign-up reveals** whether an email is already registered (it returns a conflict), a usability trade-off.
-- **A few unauthenticated edge-case endpoints** under `/api/_edge/` exist to exercise the serverless adapter; they echo bytes only.
+- **Adapter test endpoints** under `/api/_edge/` (they echo bytes only) are served only when `EDGE_ROUTES=1`; they are off in production.
 - Cron-style behaviour only exists on the published deployment: the scheduled function cannot be run locally.
 
 ## Privacy

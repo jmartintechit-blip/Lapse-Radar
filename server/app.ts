@@ -39,7 +39,8 @@ export function createApp(getDb: GetDb, check?: Checker) {
     res.json({ ok: true });
   });
 
-  app.use('/api/_edge', edgeRouter);
+  // Byte-level test endpoints for the serverless adapter: off unless a deploy gate turns them on.
+  if (process.env.EDGE_ROUTES === '1') app.use('/api/_edge', edgeRouter);
   app.use('/api', authRouter(getDb));
   app.use('/api', itemsRouter(getDb, check));
   app.use('/api', alertsRouter(getDb));

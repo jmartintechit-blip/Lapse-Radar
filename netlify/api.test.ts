@@ -1,7 +1,13 @@
-import { describe, expect, it } from 'vitest';
-import handler from './functions/api';
+import { beforeAll, describe, expect, it, vi } from 'vitest';
 
-const ctx = {} as Parameters<typeof handler>[1];
+type Handler = typeof import('./functions/api').default;
+let handler: Handler;
+// The edge-case endpoints exist only when EDGE_ROUTES=1, read when the app is created.
+beforeAll(async () => {
+  vi.stubEnv('EDGE_ROUTES', '1');
+  handler = (await import('./functions/api')).default;
+});
+const ctx = {} as Parameters<Handler>[1];
 const call = (path: string, init?: RequestInit) =>
   handler(new Request(`https://lapse.test${path}`, init), ctx);
 
