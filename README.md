@@ -7,6 +7,8 @@
 
 > A portfolio project built with AI assistance. It is a demo-scale service, not a commercial product: see [Limitations](#limitations).
 
+**Live demo: <https://lapse-radar.netlify.app>** (press "Try the read-only demo"; no sign-up needed).
+
 ![Landing page with the radar graphic](docs/landing-light.png)
 
 ![Dashboard in dark theme: items with status chips, alerts and settings](docs/dashboard-dark.png)
@@ -85,7 +87,7 @@ Set these as environment variables (never commit them):
 
 - **Tests:** unit tests for the pure expiry maths, SSRF rules, TLS/RDAP parsing (with fixtures), the alert engine (renewal, single threshold, expired), the scheduled run and lock, email quota, auth, isolation between users and account deletion; Playwright tests for sign-up, items, alerts, settings, the demo, deletion, keyboard use, focus and theme.
 - **CI:** GitHub Actions runs `npm run check` and the E2E suite on pushes to `main` and `release` and on pull requests.
-- **Lighthouse** (Chrome headless, mobile profile, production build served locally without the hosting headers, measured 2026-10-22): accessibility 100 on the home, sign-in, sign-up and privacy pages and on the demo dashboard; SEO 100 on the home page. Re-measure on the deployed site before relying on these numbers.
+- **Lighthouse** on the deployed site (Chrome headless, mobile profile, measured 2026-10-22): accessibility 100 on the home, sign-in, sign-up and privacy pages and on the demo dashboard; SEO 100; performance 95-97; best practices 92. The best-practices gap is a Content Security Policy console error whose source is `about:srcdoc`; it appears to come from a script that Netlify injects into the served HTML (`/.netlify/scripts/hud`), since the app's own HTML has no inline script or style (not proven).
 - Not tested with a real screen reader.
 
 ## Limitations
@@ -107,7 +109,7 @@ What is stored and who processes it is described in plain language on the in-app
 
 ## Project status
 
-Working toward a first release. See the commit history for the build log. This README states only what the code does today.
+Version 0.1.0 is deployed at the demo link above. See the commit history for the build log. This README states only what the code does today.
 
 ## License
 
