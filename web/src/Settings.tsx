@@ -18,12 +18,19 @@ export function Settings({ readOnly }: { readOnly: boolean }) {
     setEmailAlerts(s.emailAlerts);
   };
   useEffect(() => {
+    // Only the latest request may fill the form: a late duplicate response (StrictMode runs this
+    // effect twice in development) would overwrite what the user has already typed.
+    let current = true;
     api<Settings>('GET', '/me')
       .then((s) => {
+        if (!current) return;
         show(s);
         setLoaded(true);
       })
-      .catch((err: unknown) => setError(errorMessage(err)));
+      .catch((err: unknown) => current && setError(errorMessage(err)));
+    return () => {
+      current = false;
+    };
   }, []);
 
   const onSubmit = async (e: FormEvent<HTMLFormElement>) => {

@@ -53,6 +53,8 @@ test('sign in works with the keyboard alone', async ({ page }) => {
   await page.keyboard.press('Enter');
   await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
   await page.getByRole('button', { name: 'Sign out' }).click();
+  // the route change moves focus to the heading; start typing only after that
+  await expect(page.getByRole('heading', { name: 'Sign in' })).toBeFocused();
   await page.getByLabel('Email').focus();
   await page.keyboard.type(email);
   await page.keyboard.press('Tab');
