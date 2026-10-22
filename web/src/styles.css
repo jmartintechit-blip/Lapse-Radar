@@ -115,7 +115,8 @@ label {
   font-weight: 600;
 }
 input:not([type='checkbox']),
-select {
+select,
+textarea {
   font: inherit;
   color: var(--text);
   background: var(--surface);
@@ -165,12 +166,7 @@ th {
   color: var(--muted);
   font-weight: 600;
 }
-@media (max-width: 52rem) {
-  table {
-    display: block;
-    overflow-x: auto;
-  }
-}
+
 ul {
   padding-left: 1.2rem;
 }
@@ -281,4 +277,79 @@ ul {
 }
 .blip-critical {
   fill: var(--critical);
+}
+
+/* Item table: a real table from 52rem up; below that each row becomes a card. Roles are set in the
+   markup, so the table semantics survive display:block. */
+.chip {
+  display: inline-block;
+  font: 600 0.85rem var(--font-mono);
+  padding: 0.15rem 0.6rem;
+  border: 1.5px solid currentColor;
+  border-radius: 99px;
+  white-space: nowrap;
+}
+.chip-ok {
+  color: var(--ok);
+}
+.chip-soon {
+  color: var(--soon);
+}
+.chip-critical,
+.chip-expired,
+.chip-error {
+  color: var(--critical);
+}
+.chip-pending {
+  color: var(--muted);
+}
+.row-actions button {
+  margin: 0 0.4rem 0.4rem 0;
+}
+textarea {
+  display: block;
+}
+@media (max-width: 51.99rem) {
+  table,
+  tbody,
+  tr,
+  th,
+  td {
+    display: block;
+  }
+  table {
+    background: none;
+    border: 0;
+  }
+  thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+  tr {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 0.75rem;
+    margin-bottom: 0.75rem;
+    padding: 0.5rem 0.9rem;
+  }
+  th,
+  td {
+    border: 0;
+    padding: 0.3rem 0;
+  }
+  th[scope='row'] {
+    color: var(--text);
+    font-size: 1.1rem;
+  }
+  td[data-label]::before {
+    content: attr(data-label);
+    display: block;
+    color: var(--muted);
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
 }

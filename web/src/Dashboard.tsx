@@ -18,6 +18,15 @@ type Item = {
   notes: string | null;
 };
 
+// Status is never shown by colour alone: each state has its own symbol and word.
+const STATUS_CHIP = {
+  expired: { symbol: '✕', word: 'Expired' },
+  critical: { symbol: '▲', word: 'Critical' },
+  soon: { symbol: '●', word: 'Soon' },
+  ok: { symbol: '✓', word: 'OK' },
+  pending: { symbol: '…', word: 'Not checked' },
+  error: { symbol: '!', word: 'Check failed' },
+} as const;
 const KIND_NAME = { tls: 'TLS certificate', domain: 'Domain', manual: 'Manual' } as const;
 // A date input holds a day; items expire at the start of that UTC day.
 const toIso = (day: string) => `${day}T00:00:00Z`;
@@ -228,15 +237,23 @@ function ItemRow({
   const status = item.expiresAt ? expiryStatus(item.expiresAt) : item.status;
 
   return (
-    <tr>
-      <th scope="row">{item.label}</th>
-      <td>
+    <tr role="row">
+      <th scope="row" role="rowheader">
+        {item.label}
+      </th>
+      <td role="cell" data-label="Type">
         {KIND_NAME[item.kind]}
         {item.host && item.host !== item.label ? ` · ${item.host}` : ''}
       </td>
-      <td>{expiryText(item)}</td>
-      <td data-status={status}>{status}</td>
-      <td>
+      <td role="cell" data-label="Expires">
+        {expiryText(item)}
+      </td>
+      <td role="cell" data-label="Status">
+        <span className={`chip chip-${status}`}>
+          <span aria-hidden="true">{STATUS_CHIP[status].symbol}</span> {STATUS_CHIP[status].word}
+        </span>
+      </td>
+      <td role="cell" className="row-actions">
         {mode === 'edit' ? (
           <EditForm
             item={item}
@@ -286,7 +303,12 @@ export function Dashboard() {
   const [error, setError] = useState<string | null>(null);
   const [version, setVersion] = useState(0);
   const readOnly = user?.isDemo ?? true;
-  const itemsChanged = () => setVersion((v) => v + 1);
+  const [announcement, setAnnouncement] = useState('');
+  // Alerts can appear whenever items change; the polite live region tells screen-reader users what happened.
+  const itemsChanged = (message: string) => {
+    setVersion((v) => v + 1);
+    setAnnouncement(message);
+  };
 
   const load = useCallback(async () => {
     setError(null);
@@ -302,6 +324,9 @@ export function Dashboard() {
   return (
     <main>
       <h1>Dashboard</h1>
+      <div aria-live="polite" className="visually-hidden">
+        {announcement}
+      </div>
       <p>Signed in as {user?.email}</p>
       <button type="button" onClick={() => void logout()}>
         Sign out
@@ -320,18 +345,28 @@ export function Dashboard() {
       ) : items.length === 0 ? (
         <p>Nothing tracked yet. Add a domain, a TLS host or a token to see its days left.</p>
       ) : (
-        <table>
+        <table role="table">
           <caption className="visually-hidden">Tracked items and their expiry</caption>
           <thead>
-            <tr>
-              <th scope="col">Item</th>
-              <th scope="col">Type</th>
-              <th scope="col">Expires</th>
-              <th scope="col">Status</th>
-              <th scope="col">Actions</th>
+            <tr role="row">
+              <th scope="col" role="columnheader">
+                Item
+              </th>
+              <th scope="col" role="columnheader">
+                Type
+              </th>
+              <th scope="col" role="columnheader">
+                Expires
+              </th>
+              <th scope="col" role="columnheader">
+                Status
+              </th>
+              <th scope="col" role="columnheader">
+                Actions
+              </th>
             </tr>
           </thead>
-          <tbody>
+          <tbody role="rowgroup">
             {items.map((item) => (
               <ItemRow
                 key={item.id}
@@ -339,9 +374,12 @@ export function Dashboard() {
                 readOnly={readOnly}
                 onChanged={(saved) => {
                   setItems(items.map((i) => (i.id === saved.id ? saved : i)));
-                  itemsChanged();
+                  itemsChanged(`${saved.label} updated`);
                 }}
-                onDeleted={(id) => setItems(items.filter((i) => i.id !== id))}
+                onDeleted={(id) => {
+                  setItems(items.filter((i) => i.id !== id));
+                  itemsChanged('Item deleted');
+                }}
               />
             ))}
           </tbody>
@@ -354,7 +392,7 @@ export function Dashboard() {
         <AddItemForm
           onAdded={(item) => {
             setItems((items) => [...(items ?? []), item]);
-            itemsChanged();
+            itemsChanged(`${item.label} added`);
           }}
         />
       )}
