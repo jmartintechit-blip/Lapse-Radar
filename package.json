@@ -4,7 +4,7 @@
   "private": true,
   "description": "Expiry dashboard for domains, TLS certificates and secrets, with deduplicated alerts.",
   "license": "MIT",
-  "author": "Juan Antonio Martín Nadales",
+  "author": "jmartintechit-blip",
   "type": "module",
   "engines": {
     "node": ">=22"
