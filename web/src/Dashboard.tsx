@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import { daysRemaining, expiryStatus } from '../../shared/expiry';
 import { api, errorMessage } from './api';
 import { Link } from 'react-router';
 import { Alerts } from './Alerts';
+import { useAnnounce } from './announce';
 import { DeleteAccount } from './DeleteAccount';
 import { useAuth } from './auth';
 import { Settings } from './Settings';
@@ -157,6 +158,7 @@ function EditForm({
         <input
           id={`label-${item.id}`}
           name="label"
+          autoFocus
           defaultValue={item.label}
           maxLength={100}
           required
@@ -210,6 +212,17 @@ function ItemRow({
 }) {
   const [mode, setMode] = useState<'view' | 'edit' | 'confirm'>('view');
   const [error, setError] = useState<string | null>(null);
+  const editButton = useRef<HTMLButtonElement>(null);
+  const deleteButton = useRef<HTMLButtonElement>(null);
+  const previous = useRef(mode);
+  // Leaving edit or confirm removes the focused control; put focus back on the one that opened it.
+  useEffect(() => {
+    if (mode === 'view') {
+      if (previous.current === 'edit') editButton.current?.focus();
+      if (previous.current === 'confirm') deleteButton.current?.focus();
+    }
+    previous.current = mode;
+  }, [mode]);
 
   const remove = async () => {
     try {
@@ -263,12 +276,14 @@ function ItemRow({
               setMode('view');
             }}
           />
-        ) : readOnly ? null : mode === 'confirm' ? (
+        ) : readOnly ? (
+          <span className="visually-hidden">Read-only in the demo</span>
+        ) : mode === 'confirm' ? (
           <>
             <button type="button" onClick={() => void remove()}>
               Confirm delete {item.label}
             </button>{' '}
-            <button type="button" onClick={() => setMode('view')}>
+            <button type="button" autoFocus onClick={() => setMode('view')}>
               Keep
             </button>
           </>
@@ -282,10 +297,10 @@ function ItemRow({
                 </button>{' '}
               </>
             )}
-            <button type="button" onClick={() => setMode('edit')}>
+            <button ref={editButton} type="button" onClick={() => setMode('edit')}>
               Edit<span className="visually-hidden"> {item.label}</span>
             </button>{' '}
-            <button type="button" onClick={() => setMode('confirm')}>
+            <button ref={deleteButton} type="button" onClick={() => setMode('confirm')}>
               Delete<span className="visually-hidden"> {item.label}</span>
             </button>
           </>
@@ -303,11 +318,11 @@ export function Dashboard() {
   const [error, setError] = useState<string | null>(null);
   const [version, setVersion] = useState(0);
   const readOnly = user?.isDemo ?? true;
-  const [announcement, setAnnouncement] = useState('');
+  const announce = useAnnounce();
   // Alerts can appear whenever items change; the polite live region tells screen-reader users what happened.
   const itemsChanged = (message: string) => {
     setVersion((v) => v + 1);
-    setAnnouncement(message);
+    announce(message);
   };
 
   const load = useCallback(async () => {
@@ -324,15 +339,14 @@ export function Dashboard() {
   return (
     <main>
       <h1>Dashboard</h1>
-      <div aria-live="polite" className="visually-hidden">
-        {announcement}
-      </div>
       <p>Signed in as {user?.email}</p>
       <button type="button" onClick={() => void logout()}>
         Sign out
       </button>
 
-      <h2>Your items</h2>
+      <h2 id="items-heading" tabIndex={-1}>
+        Your items
+      </h2>
       {error ? (
         <div role="alert">
           <p>{error}</p>
@@ -347,7 +361,7 @@ export function Dashboard() {
       ) : (
         <table role="table">
           <caption className="visually-hidden">Tracked items and their expiry</caption>
-          <thead>
+          <thead role="rowgroup">
             <tr role="row">
               <th scope="col" role="columnheader">
                 Item
@@ -378,7 +392,8 @@ export function Dashboard() {
                 }}
                 onDeleted={(id) => {
                   setItems(items.filter((i) => i.id !== id));
-                  itemsChanged('Item deleted');
+                  itemsChanged(`${items.find((i) => i.id === id)?.label ?? 'Item'} deleted`);
+                  document.getElementById('items-heading')?.focus();
                 }}
               />
             ))}

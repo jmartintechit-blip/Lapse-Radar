@@ -1,39 +1,49 @@
 import { useEffect, useState, type FormEvent } from 'react';
+import { useAnnounce } from './announce';
 import { api, errorMessage } from './api';
 
 type Settings = { thresholds: number[]; emailAlerts: boolean };
 
 export function Settings({ readOnly }: { readOnly: boolean }) {
-  const [settings, setSettings] = useState<Settings | null>(null);
+  const announce = useAnnounce();
+  const [thresholds, setThresholds] = useState('');
+  const [emailAlerts, setEmailAlerts] = useState(true);
+  const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [busy, setBusy] = useState(false);
 
+  const show = (s: Settings) => {
+    setThresholds(s.thresholds.join(', '));
+    setEmailAlerts(s.emailAlerts);
+  };
   useEffect(() => {
     api<Settings>('GET', '/me')
-      .then(setSettings)
+      .then((s) => {
+        show(s);
+        setLoaded(true);
+      })
       .catch((err: unknown) => setError(errorMessage(err)));
   }, []);
 
   const onSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    const data = new FormData(e.currentTarget);
-    const thresholds = String(data.get('thresholds') ?? '')
-      .split(',')
-      .map((t) => t.trim())
-      .filter(Boolean)
-      .map(Number);
     setBusy(true);
     setError(null);
     setSaved(false);
     try {
-      setSettings(
+      show(
         await api<Settings>('PATCH', '/settings', {
-          thresholds,
-          emailAlerts: data.get('emailAlerts') === 'on',
+          thresholds: thresholds
+            .split(',')
+            .map((t) => t.trim())
+            .filter(Boolean)
+            .map(Number),
+          emailAlerts,
         }),
       );
       setSaved(true);
+      announce('Alert settings saved');
     } catch (err) {
       setError(errorMessage(err));
     }
@@ -43,19 +53,15 @@ export function Settings({ readOnly }: { readOnly: boolean }) {
   return (
     <section aria-labelledby="settings-heading">
       <h2 id="settings-heading">Alert settings</h2>
-      {!settings ? (
+      {!loaded ? (
         error ? (
           <p role="alert">{error}</p>
         ) : (
-          <p role="status">Loading settings…</p>
+          <p>Loading settings…</p>
         )
       ) : (
-        // Keyed by the saved values so the inputs show what the server actually stored.
-        <form
-          key={`${settings.thresholds}|${settings.emailAlerts}`}
-          onSubmit={onSubmit}
-          aria-labelledby="settings-heading"
-        >
+        <form onSubmit={onSubmit}>
+          {readOnly && <p id="settings-readonly">Read-only in the demo account.</p>}
           <p>
             <label htmlFor="thresholds">
               Alert me when this many days are left (comma separated)
@@ -63,27 +69,30 @@ export function Settings({ readOnly }: { readOnly: boolean }) {
             <br />
             <input
               id="thresholds"
-              name="thresholds"
-              defaultValue={settings.thresholds.join(', ')}
+              value={thresholds}
+              onChange={(e) => setThresholds(e.target.value)}
               inputMode="numeric"
               pattern="[0-9, ]+"
-              disabled={readOnly}
+              title="Whole numbers separated by commas, for example 30, 14, 7, 1"
+              aria-describedby={readOnly ? 'settings-readonly' : 'thresholds-hint'}
+              readOnly={readOnly}
               required
             />
           </p>
+          <p id="thresholds-hint">Whole numbers separated by commas, for example 30, 14, 7, 1.</p>
           <p>
             <label>
               <input
                 type="checkbox"
-                name="emailAlerts"
-                defaultChecked={settings.emailAlerts}
+                checked={emailAlerts}
+                onChange={(e) => setEmailAlerts(e.target.checked)}
                 disabled={readOnly}
               />{' '}
               Also send alerts by email
             </label>
           </p>
           {error && <p role="alert">{error}</p>}
-          {saved && <p role="status">Settings saved.</p>}
+          {saved && <p>Settings saved.</p>}
           {!readOnly && (
             <button type="submit" disabled={busy}>
               Save settings

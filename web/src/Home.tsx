@@ -10,6 +10,7 @@ export function Home() {
   const { user, authenticate } = useAuth();
   const navigate = useNavigate();
   const [demoError, setDemoError] = useState<string | null>(null);
+  const [starting, setStarting] = useState(false);
 
   useEffect(() => {
     fetch('/api/health')
@@ -18,9 +19,13 @@ export function Home() {
   }, []);
 
   const startDemo = async () => {
+    setStarting(true);
+    setDemoError(null);
     const error = await authenticate('demo', '', '');
-    if (error) setDemoError(error);
-    else navigate('/dashboard');
+    if (error) {
+      setDemoError(error);
+      setStarting(false);
+    } else navigate('/dashboard');
   };
 
   return (
@@ -42,7 +47,12 @@ export function Home() {
               </Link>
             ) : (
               <>
-                <button type="button" className="cta" onClick={() => void startDemo()}>
+                <button
+                  type="button"
+                  className="cta"
+                  disabled={starting}
+                  onClick={() => void startDemo()}
+                >
                   Try the read-only demo
                 </button>
                 <Link to="/signup" className="cta ghost">
@@ -79,7 +89,7 @@ export function Home() {
 
       <footer className="site-footer">
         <Link to="/privacy">Privacy</Link>
-        <span role="status">API status: {status}</span>
+        <span>API status: {status}</span>
       </footer>
     </main>
   );

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { useAnnounce } from './announce';
 import { api, errorMessage } from './api';
 
 type Alert = {
@@ -20,6 +21,7 @@ const describe = (a: Alert) =>
 export function Alerts({ readOnly, version }: { readOnly: boolean; version: number }) {
   const [alerts, setAlerts] = useState<Alert[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const announce = useAnnounce();
 
   const load = useCallback(async () => {
     setError(null);
@@ -36,6 +38,9 @@ export function Alerts({ readOnly, version }: { readOnly: boolean; version: numb
     try {
       await api('POST', path);
       setAlerts((list) => list?.map(update) ?? null);
+      announce(path.endsWith('read-all') ? 'All alerts marked as read' : 'Alert marked as read');
+      // the button that had focus is gone: continue from the section heading
+      document.getElementById('alerts-heading')?.focus();
     } catch (err) {
       setError(errorMessage(err));
     }
@@ -45,7 +50,9 @@ export function Alerts({ readOnly, version }: { readOnly: boolean; version: numb
 
   return (
     <section aria-labelledby="alerts-heading">
-      <h2 id="alerts-heading">Alerts{unread > 0 && ` (${unread} unread)`}</h2>
+      <h2 id="alerts-heading" tabIndex={-1}>
+        Alerts{unread > 0 && ` (${unread} unread)`}
+      </h2>
       {error && (
         <div role="alert">
           <p>{error}</p>

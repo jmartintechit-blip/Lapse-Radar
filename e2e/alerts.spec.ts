@@ -26,7 +26,7 @@ test('a close expiry raises an alert that can be read, and settings are saved', 
   await page.reload(); // what was saved is what comes back
   await expect(page.getByRole('region', { name: 'Alerts' })).not.toContainText('New:');
 
-  const settings = page.getByRole('form', { name: 'Alert settings' });
+  const settings = page.getByRole('region', { name: 'Alert settings' });
   await settings.getByLabel(/Alert me when/).fill('60, 5');
   await settings.getByLabel('Also send alerts by email').uncheck();
   await settings.getByRole('button', { name: 'Save settings' }).click();

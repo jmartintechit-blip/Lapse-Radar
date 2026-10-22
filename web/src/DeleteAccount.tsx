@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react';
+import { useRef, useState, type FormEvent } from 'react';
 import { api, errorMessage } from './api';
 import { useAuth } from './auth';
 
@@ -7,6 +7,7 @@ export function DeleteAccount() {
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const trigger = useRef<HTMLButtonElement>(null);
 
   const onSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -26,11 +27,11 @@ export function DeleteAccount() {
     <section aria-labelledby="delete-heading">
       <h2 id="delete-heading">Delete account</h2>
       {!open ? (
-        <button type="button" onClick={() => setOpen(true)}>
+        <button ref={trigger} type="button" onClick={() => setOpen(true)}>
           Delete my account…
         </button>
       ) : (
-        <form onSubmit={onSubmit} aria-labelledby="delete-heading">
+        <form onSubmit={onSubmit}>
           <p>This permanently removes your account, items and alerts. It cannot be undone.</p>
           <p>
             <label htmlFor="delete-password">Confirm with your password</label>
@@ -41,6 +42,7 @@ export function DeleteAccount() {
               type="password"
               autoComplete="current-password"
               maxLength={128}
+              autoFocus
               required
             />
           </p>
@@ -48,7 +50,14 @@ export function DeleteAccount() {
           <button type="submit" disabled={busy}>
             Permanently delete my account
           </button>{' '}
-          <button type="button" onClick={() => setOpen(false)}>
+          <button
+            type="button"
+            onClick={() => {
+              setOpen(false);
+              // the trigger is mounted again after this render
+              setTimeout(() => trigger.current?.focus());
+            }}
+          >
             Cancel
           </button>
         </form>

@@ -8,7 +8,7 @@ export function SiteHeader() {
   return (
     <header className="site-header">
       <Link to="/" className="brand">
-        ◎ LAPSE RADAR
+        <span aria-hidden="true">◎</span> LAPSE RADAR
       </Link>
       <button
         type="button"

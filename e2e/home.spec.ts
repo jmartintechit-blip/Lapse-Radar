@@ -3,7 +3,8 @@ import { expect, test } from '@playwright/test';
 test('home page loads and reaches a healthy API', async ({ page }) => {
   await page.goto('/');
   await expect(page.getByRole('heading', { name: /Know what expires/ })).toBeVisible();
-  await expect(page.getByRole('status')).toHaveText('API status: ok');
+  await expect(page.getByText('API status: ok')).toBeVisible();
+  await expect(page).toHaveTitle(/Lapse Radar/);
 });
 
 test('unknown routes show a not found page', async ({ page }) => {

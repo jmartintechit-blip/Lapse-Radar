@@ -170,6 +170,19 @@ th {
 ul {
   padding-left: 1.2rem;
 }
+/* User text (labels, hosts, errors) may have no spaces; let it wrap instead of scrolling sideways. */
+th,
+td,
+li,
+p {
+  overflow-wrap: anywhere;
+}
+input:disabled,
+select:disabled,
+textarea:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
 
 .visually-hidden {
   position: absolute;
@@ -240,6 +253,15 @@ ul {
   font-size: 0.9rem;
 }
 
+.radar-box {
+  text-align: center;
+}
+.radar-box button {
+  margin-top: 0.5rem;
+}
+.radar[data-paused='true'] .radar-sweep {
+  animation-play-state: paused;
+}
 .radar {
   width: 100%;
   max-width: 30rem;

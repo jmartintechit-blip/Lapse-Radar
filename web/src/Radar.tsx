@@ -1,3 +1,5 @@
+import { useState } from 'react';
+
 // Decorative radar: the rings are the alert thresholds (30, 14, 7 and 1 days), a dot is an item and
 // the nearer the centre, the sooner it expires. The sweep stops under prefers-reduced-motion (CSS).
 const RINGS = [
@@ -15,35 +17,36 @@ const BLIPS = [
 ];
 
 export function Radar() {
+  const [paused, setPaused] = useState(false);
   return (
-    <svg
-      className="radar"
-      viewBox="0 0 400 400"
-      role="img"
-      aria-label="Radar graphic: rings mark 1, 7, 14 and 30 days before expiry. Each dot is a tracked item; the nearer the centre, the sooner it expires."
-    >
-      <defs>
-        <linearGradient id="sweep-fade" x1="0" y1="0" x2="1" y2="0">
-          <stop offset="0" stopColor="var(--accent)" stopOpacity="0" />
-          <stop offset="1" stopColor="var(--accent)" stopOpacity="0.45" />
-        </linearGradient>
-      </defs>
-      {RINGS.map(({ r }) => (
-        <circle key={r} className="radar-line" cx="200" cy="200" r={r} />
-      ))}
-      <line className="radar-line" x1="10" y1="200" x2="390" y2="200" />
-      <line className="radar-line" x1="200" y1="10" x2="200" y2="390" />
-      {RINGS.map(({ r, label }) => (
-        <text key={r} className="radar-label" x="206" y={200 - r + 14}>
-          {label}
-        </text>
-      ))}
-      <g className="radar-sweep">
-        <path d="M200 200 L390 200 A190 190 0 0 0 340 66 Z" fill="url(#sweep-fade)" />
-      </g>
-      {BLIPS.map(({ x, y, tone }) => (
-        <circle key={`${x}-${y}`} className={`blip blip-${tone}`} cx={x} cy={y} r="6" />
-      ))}
-    </svg>
+    <div className="radar-box">
+      <svg className="radar" viewBox="0 0 400 400" aria-hidden="true" data-paused={paused}>
+        <defs>
+          <linearGradient id="sweep-fade" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0" stopColor="var(--accent)" stopOpacity="0" />
+            <stop offset="1" stopColor="var(--accent)" stopOpacity="0.45" />
+          </linearGradient>
+        </defs>
+        {RINGS.map(({ r }) => (
+          <circle key={r} className="radar-line" cx="200" cy="200" r={r} />
+        ))}
+        <line className="radar-line" x1="10" y1="200" x2="390" y2="200" />
+        <line className="radar-line" x1="200" y1="10" x2="200" y2="390" />
+        {RINGS.map(({ r, label }) => (
+          <text key={r} className="radar-label" x="206" y={200 - r + 14}>
+            {label}
+          </text>
+        ))}
+        <g className="radar-sweep">
+          <path d="M200 200 L390 200 A190 190 0 0 0 340 66 Z" fill="url(#sweep-fade)" />
+        </g>
+        {BLIPS.map(({ x, y, tone }) => (
+          <circle key={`${x}-${y}`} className={`blip blip-${tone}`} cx={x} cy={y} r="6" />
+        ))}
+      </svg>
+      <button type="button" aria-pressed={paused} onClick={() => setPaused((p) => !p)}>
+        {paused ? 'Play radar animation' : 'Pause radar animation'}
+      </button>
+    </div>
   );
 }
