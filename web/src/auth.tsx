@@ -68,6 +68,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
 export function RequireUser() {
   const { user } = useAuth();
-  if (user === undefined) return <p role="status">Loading…</p>;
+  if (user === undefined)
+    return (
+      <main>
+        <p role="status">Loading…</p>
+      </main>
+    );
   return user ? <Outlet /> : <Navigate to="/login" replace />;
 }

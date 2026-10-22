@@ -1,3 +1,4 @@
+import { mkdirSync } from 'node:fs';
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
 import { createApp } from './server/app';
@@ -8,7 +9,9 @@ import { createPgliteDb } from './server/db/pglite';
 // Opened on the first request that needs it.
 let dev: ReturnType<typeof openDevDb> | undefined;
 const openDevDb = async () => {
-  const db = createPgliteDb(process.env.LAPSE_DB === 'memory' ? undefined : '.data/dev');
+  const memory = process.env.LAPSE_DB === 'memory';
+  if (!memory) mkdirSync('.data', { recursive: true }); // PGlite creates only the last folder
+  const db = createPgliteDb(memory ? undefined : '.data/dev');
   await migrate(db);
   return db;
 };

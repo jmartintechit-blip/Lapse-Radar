@@ -4,6 +4,7 @@ import { AuthForm } from './AuthForm';
 import { AuthProvider, RequireUser, useAuth } from './auth';
 import { Dashboard } from './Dashboard';
 import { Privacy } from './Privacy';
+import { SiteHeader } from './SiteHeader';
 
 type ApiStatus = 'loading' | 'ok' | 'error';
 
@@ -62,6 +63,7 @@ function NotFound() {
 export function App() {
   return (
     <AuthProvider>
+      <SiteHeader />
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/privacy" element={<Privacy />} />
