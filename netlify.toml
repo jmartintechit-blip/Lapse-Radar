@@ -11,3 +11,15 @@
   from = "/*"
   to = "/index.html"
   status = 200
+
+# Security headers for the static site. The CSP allows only same-origin scripts, styles and requests;
+# the bundle has no inline code. If a font or image host is added later, extend it here.
+[[headers]]
+  for = "/*"
+  [headers.values]
+    Content-Security-Policy = "default-src 'self'; img-src 'self' data:; base-uri 'none'; form-action 'self'; frame-ancestors 'none'; object-src 'none'"
+    X-Content-Type-Options = "nosniff"
+    X-Frame-Options = "DENY"
+    Referrer-Policy = "no-referrer"
+    Permissions-Policy = "camera=(), microphone=(), geolocation=()"
+    Strict-Transport-Security = "max-age=31536000"

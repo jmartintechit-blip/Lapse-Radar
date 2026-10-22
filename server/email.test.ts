@@ -1,7 +1,13 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { migrate } from './db/migrate';
 import { createPgliteDb } from './db/pglite';
-import { buildMessage, createResendSender, DAILY_EMAIL_CAP, sendPendingEmails } from './email';
+import {
+  buildMessage,
+  createResendSender,
+  DAILY_EMAIL_CAP,
+  sendPendingEmails,
+  USER_DAILY_CAP,
+} from './email';
 
 const db = createPgliteDb();
 let userId = '';
@@ -110,6 +116,13 @@ describe('sendPendingEmails', () => {
     expect(await sendPendingEmails(db, send)).toEqual({ sent: 1, failed: 0 });
     expect(await sendPendingEmails(db, send)).toEqual({ sent: 0, failed: 0 });
     expect((await states()).filter((s) => s.emailed)).toHaveLength(1);
+  });
+
+  it('gives one user at most a few emails a day', async () => {
+    for (let i = 0; i < USER_DAILY_CAP + 3; i++) await addAlert(`s${i}`);
+    const send = vi.fn().mockResolvedValue(undefined);
+    expect(await sendPendingEmails(db, send)).toEqual({ sent: USER_DAILY_CAP, failed: 0 });
+    expect(await sendPendingEmails(db, send)).toEqual({ sent: 0, failed: 0 });
   });
 
   it('stays quiet when the run has no time left', async () => {

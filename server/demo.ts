@@ -24,7 +24,7 @@ export function resetDemo(db: Db) {
     const [user] = await tx.query<{ id: string }>(
       // '!' is not a scrypt hash, so verifyPassword always rejects it.
       `insert into users (email, password_hash, is_demo, email_alerts) values ($1, '!', true, false)
-       on conflict (email) do update set is_demo = true, email_alerts = false
+       on conflict (email) do update set is_demo = true, email_alerts = false, password_hash = '!'
        returning id`,
       [DEMO_EMAIL],
     );

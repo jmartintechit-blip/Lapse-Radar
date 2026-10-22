@@ -1,6 +1,7 @@
 import express, { Router, type Response } from 'express';
 import { z } from 'zod';
 import { evaluateAlerts } from './alerts';
+import { allow } from './rate-limit';
 import { requireUser, type AuthUser, type GetDb } from './auth';
 import { checkItem, type Checker, type DueItem } from './checks/runner';
 
@@ -74,6 +75,12 @@ export function itemsRouter(getDb: GetDb, check?: Checker) {
   router.use('/items', (req, res, next) =>
     req.method !== 'GET' && user(res).isDemo
       ? void fail(res, 403, 'demo_readonly', 'The demo account is read-only')
+      : next(),
+  );
+  // Writes are capped per user so one account cannot flood the table, the checker or the email queue.
+  router.use('/items', async (req, res, next) =>
+    req.method !== 'GET' && !(await allow(await getDb(), `items:${user(res).id}`, 60, 3600))
+      ? void fail(res, 429, 'rate_limited', 'Too many changes, try again later')
       : next(),
   );
   // Anything that is not a valid uuid cannot exist, so it is a 404 and never reaches the database.
@@ -201,7 +208,10 @@ export function itemsRouter(getDb: GetDb, check?: Checker) {
       return void fail(res, 429, 'check_rate_limited', 'You can check an item once per minute');
     await checkItem(db, claim, check);
     await evaluateAlerts(db, { userId: user(res).id });
-    const [row] = await db.query<ItemRow>(`select ${COLUMNS} from items where id = $1`, [claim.id]);
+    const [row] = await db.query<ItemRow>(
+      `select ${COLUMNS} from items where id = $1 and user_id = $2`,
+      [claim.id, user(res).id],
+    );
     res.json(toItem(row as ItemRow));
   });
 

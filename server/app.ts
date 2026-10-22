@@ -10,6 +10,31 @@ export function createApp(getDb: GetDb, check?: Checker) {
   const app = express();
   app.disable('x-powered-by');
 
+  app.use('/api', (req, res, next) => {
+    res.set({
+      'Cache-Control': 'no-store',
+      'X-Content-Type-Options': 'nosniff',
+      'Referrer-Policy': 'no-referrer',
+    });
+    // CSRF defence on top of SameSite=Lax: a browser always sends Origin on a cross-site write, so
+    // a write whose Origin is not this site is refused. Requests without Origin (curl, tests) pass;
+    // they carry no ambient cookie from a victim's browser.
+    const origin = req.get('origin');
+    if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method) && origin !== undefined) {
+      let same = false;
+      try {
+        same = new URL(origin).host === req.get('host');
+      } catch {
+        // "null" and malformed origins are not this site
+      }
+      if (!same)
+        return void res
+          .status(403)
+          .json({ error: { code: 'bad_origin', message: 'Cross-site request refused' } });
+    }
+    next();
+  });
+
   app.get('/api/health', (_req, res) => {
     res.json({ ok: true });
   });
@@ -28,7 +53,8 @@ export function createApp(getDb: GetDb, check?: Checker) {
   const errorHandler: ErrorRequestHandler = (err, _req, res, _next) => {
     const status =
       Number.isInteger(err?.status) && err.status >= 400 && err.status < 500 ? err.status : 500;
-    if (status === 500) console.error(err);
+    // Only the message: a database error object can carry row data such as an email.
+    if (status === 500) console.error(err instanceof Error ? err.message : 'Unknown error');
     res.status(status).json({
       error: { code: status === 500 ? 'internal' : 'bad_request', message: 'Request failed' },
     });

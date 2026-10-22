@@ -60,8 +60,18 @@ const fail = (res: Response, status: number, code: string, message: string) =>
   res.status(status).json({ error: { code, message } });
 
 // Netlify sets this header at its edge; the socket address is the fallback for local runs.
-const clientIp = (req: Request) =>
-  req.get('x-nf-client-connection-ip') ?? req.socket.remoteAddress ?? 'unknown';
+// IPv6 clients are keyed by their /64 prefix: one subscriber controls billions of addresses inside it.
+const clientIp = (req: Request) => {
+  const ip = req.get('x-nf-client-connection-ip') ?? req.socket.remoteAddress ?? 'unknown';
+  if (!ip.includes(':') || ip.startsWith('::ffff:')) return ip;
+  const [head = '', tail = ''] = ip.split('::');
+  const groups = head ? head.split(':') : [];
+  const rest = tail ? tail.split(':') : [];
+  const full = ip.includes('::')
+    ? [...groups, ...Array<string>(8 - groups.length - rest.length).fill('0'), ...rest]
+    : groups;
+  return full.slice(0, 4).join(':') + '::/64';
+};
 
 const cookieOptions = { httpOnly: true, secure: true, sameSite: 'lax', path: '/' } as const;
 

@@ -21,7 +21,9 @@ export const defaultChecker: Checker = async ({ kind, host }) => {
   const result = await checkTls(host);
   return {
     expiresAt: result.expiresAt,
-    problem: result.trusted ? undefined : `Certificate not trusted: ${result.trustError}`,
+    problem: result.trusted
+      ? undefined
+      : `Certificate not trusted: ${result.trustError}`.slice(0, 200),
   };
 };
 

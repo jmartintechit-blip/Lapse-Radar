@@ -3,6 +3,7 @@ import type { Db } from './db';
 
 export const DAILY_EMAIL_CAP = 80; // the Resend free plan allows 100 a day; the rest is headroom
 export const EMAILS_PER_RUN = 20;
+export const USER_DAILY_CAP = 5; // per user, so one account cannot use up everybody's quota
 const SEND_TIMEOUT_MS = 3_000;
 
 export type Message = { to: string; subject: string; text: string };
@@ -60,14 +61,20 @@ export async function sendPendingEmails(
   { now = new Date(), deadline = Infinity, limit = EMAILS_PER_RUN } = {},
 ) {
   const pending = await db.query<Pending>(
-    `select a.id, u.email, i.label, i.kind, a.expiry_snapshot
-     from alerts a
-     join users u on u.id = a.user_id
-     join items i on i.id = a.item_id
-     where a.emailed_at is null and a.email_error is null
-       and u.email_alerts and not u.is_demo
-     order by a.created_at, a.id limit $1`,
-    [limit],
+    `select id, email, label, kind, expiry_snapshot from (
+       select a.id, u.email, i.label, i.kind, a.expiry_snapshot, a.created_at,
+              row_number() over (partition by a.user_id order by a.created_at, a.id) as rn,
+              (select count(*) from alerts s
+               where s.user_id = a.user_id and s.emailed_at > now() - interval '1 day') as sent_today
+       from alerts a
+       join users u on u.id = a.user_id
+       join items i on i.id = a.item_id
+       where a.emailed_at is null and a.email_error is null
+         and u.email_alerts and not u.is_demo
+     ) q
+     where rn + sent_today <= $2
+     order by created_at, id limit $1`,
+    [limit, USER_DAILY_CAP],
   );
   const result = { sent: 0, failed: 0 };
   for (const alert of pending) {
