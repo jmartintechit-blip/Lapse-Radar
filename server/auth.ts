@@ -205,5 +205,35 @@ export function authRouter(getDb: GetDb) {
     res.json(res.locals.user);
   });
 
+  // Deletes the account and, through the foreign keys, its sessions, items and alerts. The password
+  // is asked again so a stolen session alone cannot erase the account.
+  router.delete('/me', requireUser(getDb), express.json({ limit: '10kb' }), async (req, res) => {
+    const me = res.locals.user as AuthUser;
+    if (me.isDemo) return void fail(res, 403, 'demo_readonly', 'The demo account is read-only');
+    const password = z.object({ password: z.string().max(128) }).safeParse(req.body);
+    const db = await getDb();
+    if (!(await allow(db, `delete:${me.id}`, 5, 900)))
+      return void fail(res, 429, 'rate_limited', 'Too many attempts, try again later');
+    const [row] = await db.query<{ password_hash: string }>(
+      'select password_hash from users where id = $1',
+      [me.id],
+    );
+    if (
+      !password.success ||
+      !row ||
+      !(await verifyPassword(password.data.password, row.password_hash))
+    )
+      return void fail(res, 401, 'invalid_credentials', 'Incorrect password');
+    await db.transaction(async (tx) => {
+      await tx.query('delete from users where id = $1', [me.id]);
+      // Login counters are keyed by email; leave nothing of the user behind.
+      await tx.query('delete from rate_limits where key like $1 or key = $2', [
+        `login:%:${me.email}`,
+        `delete:${me.id}`,
+      ]);
+    });
+    res.clearCookie(COOKIE, cookieOptions).status(204).end();
+  });
+
   return router;
 }

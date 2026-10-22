@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { daysRemaining, expiryStatus } from '../../shared/expiry';
 import { api, errorMessage } from './api';
+import { Link } from 'react-router';
 import { Alerts } from './Alerts';
+import { DeleteAccount } from './DeleteAccount';
 import { useAuth } from './auth';
 import { Settings } from './Settings';
 
@@ -359,6 +361,10 @@ export function Dashboard() {
 
       <Alerts readOnly={readOnly} version={version} />
       <Settings readOnly={readOnly} />
+      {!readOnly && <DeleteAccount />}
+      <p>
+        <Link to="/privacy">Privacy</Link>
+      </p>
     </main>
   );
 }

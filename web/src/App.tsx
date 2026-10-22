@@ -3,6 +3,7 @@ import { Link, Route, Routes, useNavigate } from 'react-router';
 import { AuthForm } from './AuthForm';
 import { AuthProvider, RequireUser, useAuth } from './auth';
 import { Dashboard } from './Dashboard';
+import { Privacy } from './Privacy';
 
 type ApiStatus = 'loading' | 'ok' | 'error';
 
@@ -43,6 +44,9 @@ function Home() {
         )}
       </nav>
       {demoError && <p role="alert">{demoError}</p>}
+      <p>
+        <Link to="/privacy">Privacy</Link>
+      </p>
     </main>
   );
 }
@@ -60,6 +64,7 @@ export function App() {
     <AuthProvider>
       <Routes>
         <Route path="/" element={<Home />} />
+        <Route path="/privacy" element={<Privacy />} />
         <Route path="/login" element={<AuthForm mode="login" />} />
         <Route path="/signup" element={<AuthForm mode="signup" />} />
         <Route element={<RequireUser />}>
