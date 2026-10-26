@@ -41,15 +41,6 @@ test('a forgotten password is reset from the emailed link and old sessions end',
   browser,
 }) => {
   const email = await signUp(page);
-  // TEMPORARY diagnostics for a CI-only failure
-  page.on('pageerror', (e) => console.log('DIAG pageerror', e.message));
-  page.on('console', (m) => console.log('DIAG console', m.type(), m.text()));
-  page.on('framenavigated', (f) => console.log('DIAG nav', f.url()));
-  page.on(
-    'request',
-    (r) => r.url().includes('/api/') && console.log('DIAG req', r.method(), r.url()),
-  );
-  page.on('requestfailed', (r) => console.log('DIAG failed', r.url(), r.failure()?.errorText));
   const other = await (await browser.newContext({ locale: 'en-US' })).newPage();
   await ownClientIp(other);
   await other.goto('/login');
