@@ -32,11 +32,12 @@ afterAll(async () => {
   await db.close();
 });
 
-const post = (path: string, body?: unknown, cookie = '', url = base) =>
+const post = (path: string, body?: unknown, cookie = '', url = base, lang = 'en') =>
   fetch(`${url}${path}`, {
     method: 'POST',
     headers: {
       'content-type': 'application/json',
+      'accept-language': lang,
       'x-nf-client-connection-ip': `10.5.0.${++n}`,
       ...(cookie ? { cookie } : {}),
     },
@@ -130,6 +131,35 @@ describe('email verification', () => {
     expect(
       (await post('/auth/forgot', { email: 'nomail@example.com' }, '', baseNoMail)).status,
     ).toBe(204);
+  });
+});
+
+describe('language', () => {
+  it('writes the account emails in the language the request came in', async () => {
+    await post('/auth/signup', { email: 'es@example.com', password }, '', base, 'es-ES,es;q=0.9');
+    expect(last('es@example.com').subject).toContain('Confirma tu dirección');
+    await post('/auth/forgot', { email: 'es@example.com' }, '', base, 'es');
+    expect(last('es@example.com').subject).toContain('Restablece');
+    await post('/auth/forgot', { email: 'es@example.com' }, '', base, 'fr');
+    expect(last('es@example.com').subject).toContain('Reset your password');
+    const [row] = await db.query<{ lang: string }>(
+      "select lang from users where email = 'es@example.com'",
+    );
+    expect(row!.lang).toBe('es');
+  });
+
+  it('can be changed for the account, and only to a supported language', async () => {
+    const cookie = await signup('lang@example.com');
+    const lang = () =>
+      db
+        .query<{ lang: string }>("select lang from users where email = 'lang@example.com'")
+        .then((r) => r[0]!.lang);
+    expect(await lang()).toBe('en');
+    expect((await post('/me/language', { lang: 'es' }, cookie)).status).toBe(204);
+    expect(await lang()).toBe('es');
+    for (const body of [{ lang: 'fr' }, {}, { lang: 5 }])
+      expect((await post('/me/language', body, cookie)).status).toBe(400);
+    expect((await post('/me/language', { lang: 'en' })).status).toBe(401);
   });
 });
 

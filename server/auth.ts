@@ -4,6 +4,7 @@ import { z } from 'zod';
 import type { Db } from './db';
 import { sendVerification, type Mail } from './account-mail';
 import { resetDemo } from './demo';
+import { langOf } from './lang';
 import { allow } from './rate-limit';
 
 export type GetDb = () => Promise<Db>;
@@ -148,6 +149,7 @@ export function authRouter(getDb: GetDb, mail?: Mail) {
     if (!input.success)
       return void fail(res, 400, 'invalid_input', 'Use a valid email and 10 to 128 characters');
 
+    const lang = langOf(req);
     const hash = await hashPassword(input.data.password);
     const result = await db.transaction(async (tx) => {
       await tx.query('select pg_advisory_xact_lock($1::bigint)', [SIGNUP_LOCK]);
@@ -157,9 +159,9 @@ export function authRouter(getDb: GetDb, mail?: Mail) {
       );
       if ((count?.n ?? 0) >= MAX_USERS) return 'full' as const;
       const rows = await tx.query<{ id: string }>(
-        `insert into users (email, password_hash) values ($1, $2)
+        `insert into users (email, password_hash, lang) values ($1, $2, $3)
          on conflict (email) do nothing returning id`,
-        [input.data.email, hash],
+        [input.data.email, hash, lang],
       );
       return rows[0]?.id ?? ('taken' as const);
     });
@@ -167,7 +169,8 @@ export function authRouter(getDb: GetDb, mail?: Mail) {
     if (result === 'taken') return void fail(res, 409, 'email_taken', 'Email already registered');
     await startSession(db, res, result);
     // Best effort: the account works without it, and "resend" is one click away in the dashboard.
-    if (mail) await sendVerification(db, mail, result, input.data.email).catch(() => undefined);
+    if (mail)
+      await sendVerification(db, mail, result, input.data.email, lang).catch(() => undefined);
     res.status(201).json({ id: result, email: input.data.email });
   });
 

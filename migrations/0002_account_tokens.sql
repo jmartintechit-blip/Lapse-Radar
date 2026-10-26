@@ -1,6 +1,9 @@
 -- Email verification: alert emails go only to addresses whose owner proved control of them.
 alter table users add column email_verified_at timestamptz;
 
+-- Language of the emails sent to this user; follows the selector in the web app.
+alter table users add column lang text not null default 'en' check (lang in ('en', 'es'));
+
 -- One-time links (verify an address, reset a password, confirm a new address). Only the SHA-256
 -- of the token is stored, like sessions, so a database leak cannot be replayed as a link.
 create table account_tokens (

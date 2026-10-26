@@ -64,6 +64,7 @@ describe('buildMessage', () => {
     label: 'my\r\nsite',
     kind: 'tls',
     expiry_snapshot: new Date(Date.UTC(2026, 0, 10)),
+    lang: 'en' as const,
   };
   it('says when it expires or that it has, and keeps the subject on one line', () => {
     expect(buildMessage(alert, new Date(Date.UTC(2026, 0, 9))).subject).toBe(
@@ -72,6 +73,14 @@ describe('buildMessage', () => {
     expect(buildMessage(alert, new Date(Date.UTC(2026, 0, 11))).subject).toBe(
       '[Lapse Radar] my site has expired',
     );
+  });
+
+  it('writes in Spanish for users who chose it', () => {
+    const es = { ...alert, lang: 'es' as const };
+    const message = buildMessage(es, new Date(Date.UTC(2026, 0, 9)));
+    expect(message.subject).toBe('[Lapse Radar] my site caduca en 1 día');
+    expect(message.text).toContain('Fecha de caducidad (UTC): 2026-01-10');
+    expect(buildMessage(es, new Date(Date.UTC(2026, 0, 11))).subject).toContain('ha caducado');
   });
 });
 

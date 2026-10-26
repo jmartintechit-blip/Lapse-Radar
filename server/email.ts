@@ -1,5 +1,6 @@
 import { daysRemaining } from '../shared/expiry';
 import type { Db } from './db';
+import type { Lang } from './lang';
 
 export const DAILY_EMAIL_CAP = 80; // the Resend free plan allows 100 a day; the rest is headroom
 export const EMAILS_PER_RUN = 20;
@@ -34,21 +35,39 @@ type Pending = {
   label: string;
   kind: string;
   expiry_snapshot: Date;
+  lang: Lang;
 };
 
 export function buildMessage(alert: Pending, now: Date): Message {
   const days = daysRemaining(alert.expiry_snapshot, now);
-  const when = days <= 0 ? 'has expired' : `expires in ${days} day${days === 1 ? '' : 's'}`;
+  const es = alert.lang === 'es';
+  const plural = (one: string, many: string) => (days === 1 ? one : many);
+  const when = es
+    ? days <= 0
+      ? 'ha caducado'
+      : `caduca en ${days} ${plural('día', 'días')}`
+    : days <= 0
+      ? 'has expired'
+      : `expires in ${days} ${plural('day', 'days')}`;
   const label = alert.label.replace(/[\r\n]+/g, ' ');
+  const date = alert.expiry_snapshot.toISOString().slice(0, 10);
   return {
     to: alert.email,
     subject: `[Lapse Radar] ${label} ${when}`,
-    text: [
-      `Your ${alert.kind} item "${label}" ${when}.`,
-      `Expiry date (UTC): ${alert.expiry_snapshot.toISOString().slice(0, 10)}`,
-      '',
-      'Open Lapse Radar to review it. You can turn these emails off in your settings.',
-    ].join('\n'),
+    text: (es
+      ? [
+          `Tu elemento ${alert.kind} "${label}" ${when}.`,
+          `Fecha de caducidad (UTC): ${date}`,
+          '',
+          'Abre Lapse Radar para revisarlo. Puedes desactivar estos emails en los ajustes.',
+        ]
+      : [
+          `Your ${alert.kind} item "${label}" ${when}.`,
+          `Expiry date (UTC): ${date}`,
+          '',
+          'Open Lapse Radar to review it. You can turn these emails off in your settings.',
+        ]
+    ).join('\n'),
   };
 }
 
@@ -61,8 +80,8 @@ export async function sendPendingEmails(
   { now = new Date(), deadline = Infinity, limit = EMAILS_PER_RUN } = {},
 ) {
   const pending = await db.query<Pending>(
-    `select id, email, label, kind, expiry_snapshot from (
-       select a.id, u.email, i.label, i.kind, a.expiry_snapshot, a.created_at,
+    `select id, email, label, kind, expiry_snapshot, lang from (
+       select a.id, u.email, u.lang, i.label, i.kind, a.expiry_snapshot, a.created_at,
               row_number() over (partition by a.user_id order by a.created_at, a.id) as rn,
               (select count(*) from alerts s
                where s.user_id = a.user_id and s.emailed_at > now() - interval '1 day') as sent_today

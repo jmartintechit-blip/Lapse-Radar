@@ -1,6 +1,7 @@
 import { createHash, randomBytes } from 'node:crypto';
 import type { Db } from './db';
 import type { Sender } from './email';
+import type { Lang } from './lang';
 
 // Alerts stop at DAILY_EMAIL_CAP (80); account emails may use the headroom up to this, still under
 // the 100 a day of the Resend free plan.
@@ -30,30 +31,58 @@ export async function issueToken(db: Db, userId: string, purpose: Purpose, newEm
   return token;
 }
 
-const TEXTS: Record<Purpose, { subject: string; intro: string; path: string; expiry: string }> = {
-  verify: {
-    subject: 'Confirm your email address',
-    intro: 'Confirm this address to receive expiry alerts by email.',
-    path: 'confirm',
-    expiry: '24 hours',
+const TEXTS: Record<
+  Lang,
+  Record<Purpose, { subject: string; intro: string; expiry: string }> & { footer: string }
+> = {
+  en: {
+    verify: {
+      subject: 'Confirm your email address',
+      intro: 'Confirm this address to receive expiry alerts by email.',
+      expiry: '24 hours',
+    },
+    reset: {
+      subject: 'Reset your password',
+      intro: 'Someone asked to reset the password of this Lapse Radar account.',
+      expiry: '1 hour',
+    },
+    change_email: {
+      subject: 'Confirm your new email address',
+      intro: 'Confirm this address to make it the email of your Lapse Radar account.',
+      expiry: '1 hour',
+    },
+    footer:
+      'The link works once and expires in {expiry}. If you did not ask for it, ignore this email.',
   },
-  reset: {
-    subject: 'Reset your password',
-    intro: 'Someone asked to reset the password of this Lapse Radar account.',
-    path: 'reset-password',
-    expiry: '1 hour',
+  es: {
+    verify: {
+      subject: 'Confirma tu dirección de email',
+      intro: 'Confirma esta dirección para recibir las alertas de caducidad por email.',
+      expiry: '24 horas',
+    },
+    reset: {
+      subject: 'Restablece tu contraseña',
+      intro: 'Alguien ha pedido restablecer la contraseña de esta cuenta de Lapse Radar.',
+      expiry: '1 hora',
+    },
+    change_email: {
+      subject: 'Confirma tu nueva dirección de email',
+      intro: 'Confirma esta dirección para que sea el email de tu cuenta de Lapse Radar.',
+      expiry: '1 hora',
+    },
+    footer:
+      'El enlace funciona una vez y caduca en {expiry}. Si no lo has pedido, ignora este email.',
   },
-  change_email: {
-    subject: 'Confirm your new email address',
-    intro: 'Confirm this address to make it the email of your Lapse Radar account.',
-    path: 'confirm',
-    expiry: '1 hour',
-  },
+};
+const PATHS: Record<Purpose, string> = {
+  verify: 'confirm',
+  reset: 'reset-password',
+  change_email: 'confirm',
 };
 
 // The token travels in the URL fragment: browsers do not send it to servers, logs or referrers.
 export const buildLink = (baseUrl: string, purpose: Purpose, token: string) =>
-  `${baseUrl.replace(/\/$/, '')}/${TEXTS[purpose].path}#token=${token}`;
+  `${baseUrl.replace(/\/$/, '')}/${PATHS[purpose]}#token=${token}`;
 
 // Sends one account email, taking a place in today's quota first. Returns false if it was not sent.
 export async function sendAccountEmail(
@@ -62,6 +91,7 @@ export async function sendAccountEmail(
   to: string,
   purpose: Purpose,
   token: string,
+  lang: Lang,
 ) {
   const taken = await db.query(
     `insert into email_quota (day, sent) values ((now() at time zone 'utc')::date, 1)
@@ -70,7 +100,7 @@ export async function sendAccountEmail(
     [ACCOUNT_EMAIL_CAP],
   );
   if (taken.length === 0) return false;
-  const t = TEXTS[purpose];
+  const t = TEXTS[lang][purpose];
   try {
     await mail.send({
       to,
@@ -80,7 +110,7 @@ export async function sendAccountEmail(
         '',
         buildLink(mail.baseUrl, purpose, token),
         '',
-        `The link works once and expires in ${t.expiry}. If you did not ask for it, ignore this email.`,
+        TEXTS[lang].footer.replace('{expiry}', t.expiry),
       ].join('\n'),
     });
     return true;
@@ -93,6 +123,6 @@ export async function sendAccountEmail(
   }
 }
 
-export async function sendVerification(db: Db, mail: Mail, userId: string, to: string) {
-  return sendAccountEmail(db, mail, to, 'verify', await issueToken(db, userId, 'verify'));
+export async function sendVerification(db: Db, mail: Mail, userId: string, to: string, lang: Lang) {
+  return sendAccountEmail(db, mail, to, 'verify', await issueToken(db, userId, 'verify'), lang);
 }

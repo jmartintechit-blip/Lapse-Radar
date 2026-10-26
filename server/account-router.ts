@@ -18,6 +18,7 @@ import {
   type AuthUser,
   type GetDb,
 } from './auth';
+import { isLang, langOf } from './lang';
 import { allow } from './rate-limit';
 
 const json = express.json({ limit: '10kb' });
@@ -60,6 +61,7 @@ export function accountRouter(getDb: GetDb, mail?: Mail) {
         input.data.email,
         'reset',
         await issueToken(db, user.id, 'reset'),
+        langOf(req),
       );
     res.status(204).end();
   });
@@ -123,14 +125,14 @@ export function accountRouter(getDb: GetDb, mail?: Mail) {
     }
   });
 
-  router.post('/me/verification', guard, async (_req, res) => {
+  router.post('/me/verification', guard, async (req, res) => {
     const me = res.locals.user as AuthUser;
     if (me.isDemo) return void fail(res, 403, 'demo_readonly', 'The demo account is read-only');
     if (me.emailVerified) return void res.status(204).end();
     const db = await getDb();
     if (!(await allow(db, `verify:${me.id}`, 3, 3600))) return void tooMany(res);
     if (!mail) return void fail(res, 503, 'email_off', 'Email is not available right now');
-    if (!(await sendVerification(db, mail, me.id, me.email)))
+    if (!(await sendVerification(db, mail, me.id, me.email, langOf(req))))
       return void fail(res, 502, 'email_failed', 'Could not send the email, try again later');
     res.status(204).end();
   });
@@ -184,8 +186,20 @@ export function accountRouter(getDb: GetDb, mail?: Mail) {
     if (taken) return void fail(res, 409, 'email_taken', 'Email already registered');
     if (!mail) return void fail(res, 503, 'email_off', 'Email is not available right now');
     const token = await issueToken(db, me.id, 'change_email', input.data.newEmail);
-    if (!(await sendAccountEmail(db, mail, input.data.newEmail, 'change_email', token)))
+    if (
+      !(await sendAccountEmail(db, mail, input.data.newEmail, 'change_email', token, langOf(req)))
+    )
       return void fail(res, 502, 'email_failed', 'Could not send the email, try again later');
+    res.status(204).end();
+  });
+
+  // Language of the emails sent to this account (alerts included); follows the selector in the app.
+  router.post('/me/language', guard, json, async (req, res) => {
+    const me = res.locals.user as AuthUser;
+    const lang: unknown = req.body?.lang;
+    if (!isLang(lang)) return void fail(res, 400, 'invalid_input', 'Choose a language');
+    if (!me.isDemo)
+      await (await getDb()).query('update users set lang = $2 where id = $1', [me.id, lang]);
     res.status(204).end();
   });
 
