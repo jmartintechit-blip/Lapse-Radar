@@ -15,7 +15,7 @@ let userId = '';
 beforeAll(async () => {
   await migrate(db);
   const [user] = await db.query<{ id: string }>(
-    "insert into users (email, password_hash) values ('mail@example.com', 'x') returning id",
+    "insert into users (email, password_hash, email_verified_at) values ('mail@example.com', 'x', now()) returning id",
   );
   userId = user!.id;
 });
@@ -83,6 +83,15 @@ describe('sendPendingEmails', () => {
     expect(await sendPendingEmails(db, send)).toEqual({ sent: 0, failed: 0 });
     expect(send).toHaveBeenCalledOnce();
     expect(await states()).toEqual([{ emailed: true, error: null }]);
+  });
+
+  it('sends nothing to an address that is not verified, then sends once it is', async () => {
+    await addAlert();
+    await db.query('update users set email_verified_at = null');
+    const send = vi.fn().mockResolvedValue(undefined);
+    expect(await sendPendingEmails(db, send)).toEqual({ sent: 0, failed: 0 });
+    await db.query('update users set email_verified_at = now()');
+    expect(await sendPendingEmails(db, send)).toEqual({ sent: 1, failed: 0 });
   });
 
   it('stores a failure, gives the quota place back and does not retry', async () => {

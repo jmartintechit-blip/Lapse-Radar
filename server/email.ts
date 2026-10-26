@@ -70,7 +70,7 @@ export async function sendPendingEmails(
        join users u on u.id = a.user_id
        join items i on i.id = a.item_id
        where a.emailed_at is null and a.email_error is null
-         and u.email_alerts and not u.is_demo
+         and u.email_alerts and not u.is_demo and u.email_verified_at is not null
      ) q
      where rn + sent_today <= $2
      order by created_at, id limit $1`,

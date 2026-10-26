@@ -2,6 +2,7 @@ import { withLambda, type HandlerResponse, type LambdaHandler } from '@netlify/a
 import serverless from 'serverless-http';
 import { createApp } from '../../server/app';
 import { createPgDb, type Db } from '../../server/db';
+import { createResendSender } from '../../server/email';
 
 // serverless-http speaks the Lambda event format; withLambda adapts it to Netlify's current
 // Request/Response API (the legacy Lambda-only mode stops being accepted on 2027-07-01).
@@ -16,7 +17,17 @@ const getDb = async () => {
   return (db ??= createPgDb(url));
 };
 
-const lambda = serverless(createApp(getDb), { binary: true }) as unknown as LambdaHandler;
+// Account emails need both the Resend key and the public address of the site (links point to it).
+const key = process.env.RESEND_API_KEY;
+const baseUrl = process.env.APP_URL;
+const mail =
+  key && baseUrl
+    ? { send: createResendSender(key, process.env.EMAIL_FROM || undefined), baseUrl }
+    : undefined;
+
+const lambda = serverless(createApp(getDb, undefined, mail), {
+  binary: true,
+}) as unknown as LambdaHandler;
 
 const handler: LambdaHandler = async (event, context) => {
   const result = (await lambda(event, context)) as HandlerResponse;

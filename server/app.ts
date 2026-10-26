@@ -1,4 +1,6 @@
 import express, { type ErrorRequestHandler } from 'express';
+import { accountRouter } from './account-router';
+import type { Mail } from './account-mail';
 import { alertsRouter } from './alerts-router';
 import { authRouter, type GetDb } from './auth';
 import { edgeRouter } from './edge-routes';
@@ -6,7 +8,7 @@ import type { Checker } from './checks/runner';
 import { itemsRouter } from './items';
 
 // The database is opened lazily by getDb, so routes that never touch it (health, edge cases) need no connection.
-export function createApp(getDb: GetDb, check?: Checker) {
+export function createApp(getDb: GetDb, check?: Checker, mail?: Mail) {
   const app = express();
   app.disable('x-powered-by');
 
@@ -41,7 +43,8 @@ export function createApp(getDb: GetDb, check?: Checker) {
 
   // Byte-level test endpoints for the serverless adapter: off unless a deploy gate turns them on.
   if (process.env.EDGE_ROUTES === '1') app.use('/api/_edge', edgeRouter);
-  app.use('/api', authRouter(getDb));
+  app.use('/api', authRouter(getDb, mail));
+  app.use('/api', accountRouter(getDb, mail));
   app.use('/api', itemsRouter(getDb, check));
   app.use('/api', alertsRouter(getDb));
 

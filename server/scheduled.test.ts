@@ -10,7 +10,7 @@ let userId = '';
 beforeAll(async () => {
   await migrate(db);
   const [user] = await db.query<{ id: string }>(
-    "insert into users (email, password_hash) values ('sched@example.com', 'x') returning id",
+    "insert into users (email, password_hash, email_verified_at) values ('sched@example.com', 'x', now()) returning id",
   );
   userId = user!.id;
 });

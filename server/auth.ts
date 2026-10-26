@@ -2,6 +2,7 @@ import { createHash, randomBytes, scrypt, timingSafeEqual } from 'node:crypto';
 import express, { Router, type Request, type RequestHandler, type Response } from 'express';
 import { z } from 'zod';
 import type { Db } from './db';
+import { sendVerification, type Mail } from './account-mail';
 import { resetDemo } from './demo';
 import { allow } from './rate-limit';
 
@@ -12,6 +13,7 @@ export type AuthUser = {
   thresholds: number[];
   emailAlerts: boolean;
   isDemo: boolean;
+  emailVerified: boolean;
 };
 
 export const MAX_USERS = 100;
@@ -46,7 +48,7 @@ export async function verifyPassword(password: string, stored: string) {
   return key.length === expected.length && timingSafeEqual(key, expected);
 }
 
-const sha256 = (value: string) => createHash('sha256').update(value).digest('hex');
+export const sha256 = (value: string) => createHash('sha256').update(value).digest('hex');
 
 // Unknown emails are checked against this hash too, so login time does not reveal which exist.
 let dummyHash: Promise<string> | undefined;
@@ -56,12 +58,12 @@ const email = z.string().trim().toLowerCase().max(254).pipe(z.email());
 const SignupInput = z.object({ email, password: z.string().min(10).max(128) });
 const LoginInput = z.object({ email, password: z.string().min(1).max(128) });
 
-const fail = (res: Response, status: number, code: string, message: string) =>
+export const fail = (res: Response, status: number, code: string, message: string) =>
   res.status(status).json({ error: { code, message } });
 
 // Netlify sets this header at its edge; the socket address is the fallback for local runs.
 // IPv6 clients are keyed by their /64 prefix: one subscriber controls billions of addresses inside it.
-const clientIp = (req: Request) => {
+export const clientIp = (req: Request) => {
   const ip = req.get('x-nf-client-connection-ip') ?? req.socket.remoteAddress ?? 'unknown';
   if (!ip.includes(':') || ip.startsWith('::ffff:')) return ip;
   const [head = '', tail = ''] = ip.split('::');
@@ -75,7 +77,7 @@ const clientIp = (req: Request) => {
 
 const cookieOptions = { httpOnly: true, secure: true, sameSite: 'lax', path: '/' } as const;
 
-const sessionToken = (req: Request) =>
+export const sessionToken = (req: Request) =>
   req.headers.cookie
     ?.split(';')
     .map((c) => c.trim())
@@ -102,6 +104,7 @@ type UserRow = {
   thresholds: number[];
   email_alerts: boolean;
   is_demo: boolean;
+  email_verified_at: Date | null;
 };
 const toUser = (r: UserRow): AuthUser => ({
   id: r.id,
@@ -109,6 +112,7 @@ const toUser = (r: UserRow): AuthUser => ({
   thresholds: r.thresholds,
   emailAlerts: r.email_alerts,
   isDemo: r.is_demo,
+  emailVerified: r.email_verified_at !== null,
 });
 
 // Puts the signed-in user on res.locals.user; every other route filters by that id.
@@ -120,7 +124,7 @@ export const requireUser =
       ? await (
           await getDb()
         ).query<UserRow>(
-          `select u.id, u.email, u.thresholds, u.email_alerts, u.is_demo
+          `select u.id, u.email, u.thresholds, u.email_alerts, u.is_demo, u.email_verified_at
            from sessions s join users u on u.id = s.user_id
            where s.token_hash = $1 and s.expires_at > now()`,
           [sha256(token)],
@@ -131,7 +135,7 @@ export const requireUser =
     next();
   };
 
-export function authRouter(getDb: GetDb) {
+export function authRouter(getDb: GetDb, mail?: Mail) {
   const router = Router();
   // JSON only: a form post from another site is never parsed, and SameSite=Lax withholds the cookie.
   router.use('/auth', express.json({ limit: '10kb' }));
@@ -162,6 +166,8 @@ export function authRouter(getDb: GetDb) {
     if (result === 'full') return void fail(res, 429, 'user_limit', 'Registration is full for now');
     if (result === 'taken') return void fail(res, 409, 'email_taken', 'Email already registered');
     await startSession(db, res, result);
+    // Best effort: the account works without it, and "resend" is one click away in the dashboard.
+    if (mail) await sendVerification(db, mail, result, input.data.email).catch(() => undefined);
     res.status(201).json({ id: result, email: input.data.email });
   });
 
@@ -233,7 +239,17 @@ export function authRouter(getDb: GetDb) {
       const email = me.email.replace(/[\\%_]/g, '\\$&'); // escape LIKE wildcards ("_" is common in emails)
       await tx.query(
         "delete from rate_limits where key like $1 escape '\\' or key = any($2::text[])",
-        [`login:%:${email}`, [`delete:${me.id}`, `items:${me.id}`]],
+        [
+          `login:%:${email}`,
+          [
+            `delete:${me.id}`,
+            `items:${me.id}`,
+            `password:${me.id}`,
+            `email:${me.id}`,
+            `verify:${me.id}`,
+            `forgot:${me.email}`,
+          ],
+        ],
       );
     });
     res.clearCookie(COOKIE, cookieOptions).status(204).end();

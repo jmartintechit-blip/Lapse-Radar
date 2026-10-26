@@ -12,6 +12,10 @@ export default defineConfig({
   webServer: {
     command: 'npm run dev -- --port 5174 --strictPort',
     url: 'http://localhost:5174',
-    env: { LAPSE_DB: 'memory', VITE_CONFIG_NATIVE_IGNORE_WARNING: 'true' }, // fresh database, so sign-up limits and old accounts never leak between runs
+    env: {
+      LAPSE_DB: 'memory',
+      APP_URL: 'http://localhost:5174',
+      VITE_CONFIG_NATIVE_IGNORE_WARNING: 'true',
+    }, // fresh database, so sign-up limits and old accounts never leak between runs
   },
 });

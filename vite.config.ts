@@ -2,6 +2,7 @@ import { mkdirSync } from 'node:fs';
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
 import { createApp } from './server/app';
+import type { Message } from './server/email';
 import { migrate } from './server/db/migrate';
 import { createPgliteDb } from './server/db/pglite';
 
@@ -15,7 +16,13 @@ const openDevDb = async () => {
   await migrate(db);
   return db;
 };
-const app = createApp(() => (dev ??= openDevDb()));
+// Dev has no Resend: account emails land in this list, readable at /__outbox (never built into the site).
+const outbox: Message[] = [];
+const mail = {
+  send: (message: Message) => Promise.resolve(void outbox.push(message)),
+  baseUrl: process.env.APP_URL ?? 'http://localhost:5173',
+};
+const app = createApp(() => (dev ??= openDevDb()), undefined, mail);
 
 export default defineConfig({
   root: 'web',
@@ -25,6 +32,9 @@ export default defineConfig({
     {
       name: 'lapse-radar-api',
       configureServer(server) {
+        server.middlewares.use('/__outbox', (_req, res) => {
+          res.setHeader('content-type', 'application/json').end(JSON.stringify(outbox));
+        });
         server.middlewares.use(app);
       },
     },
