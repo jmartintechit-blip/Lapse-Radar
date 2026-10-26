@@ -52,7 +52,9 @@ test('a forgotten password is reset from the emailed link and old sessions end',
   await page.getByRole('button', { name: 'Sign out' }).click();
   await page.getByRole('link', { name: 'Forgot your password?' }).click();
   await page.getByLabel('Email').fill(email);
+  const forgot = page.waitForResponse((r) => r.url().endsWith('/api/auth/forgot'));
   await page.getByRole('button', { name: 'Send the link' }).click();
+  expect((await forgot).status()).toBe(204);
   await expect(page.getByRole('status')).toContainText('a link is on its way');
 
   await page.goto(await lastLink(page, email, 'reset-password'));
