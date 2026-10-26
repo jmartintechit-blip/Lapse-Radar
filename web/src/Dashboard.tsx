@@ -2,10 +2,13 @@ import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
 import { daysRemaining, expiryStatus } from '../../shared/expiry';
 import { api, errorMessage } from './api';
 import { Link } from 'react-router';
+import { Account } from './Account';
 import { Alerts } from './Alerts';
 import { useAnnounce } from './announce';
 import { DeleteAccount } from './DeleteAccount';
 import { useAuth } from './auth';
+import { useI18n } from './i18n';
+import type { Dict } from './locales/en';
 import { Settings } from './Settings';
 
 type Item = {
@@ -20,34 +23,34 @@ type Item = {
 };
 
 // Status is never shown by colour alone: each state has its own symbol and word.
-const STATUS_CHIP = {
-  expired: { symbol: '✕', word: 'Expired' },
-  critical: { symbol: '▲', word: 'Critical' },
-  soon: { symbol: '●', word: 'Soon' },
-  ok: { symbol: '✓', word: 'OK' },
-  pending: { symbol: '…', word: 'Not checked' },
-  error: { symbol: '!', word: 'Check failed' },
+const STATUS_SYMBOL = {
+  expired: '✕',
+  critical: '▲',
+  soon: '●',
+  ok: '✓',
+  pending: '…',
+  error: '!',
 } as const;
-const KIND_NAME = { tls: 'TLS certificate', domain: 'Domain', manual: 'Manual' } as const;
 // A date input holds a day; items expire at the start of that UTC day.
 const toIso = (day: string) => `${day}T00:00:00Z`;
 
-function expiryText(item: Item) {
+function expiryText(item: Item, t: Dict) {
   if (!item.expiresAt) {
-    return item.status === 'error' ? 'Check failed' : 'Not checked yet';
+    return item.status === 'error' ? t.checkFailed : t.notCheckedYet;
   }
   const days = daysRemaining(item.expiresAt);
   const day = item.expiresAt.slice(0, 10);
   const when =
     expiryStatus(item.expiresAt) === 'expired'
       ? days === 0
-        ? 'expired today'
-        : `expired ${-days} day${days === -1 ? '' : 's'} ago`
-      : `${days} day${days === 1 ? '' : 's'} left`;
+        ? t.expiredToday
+        : t.expiredAgo(-days)
+      : t.daysLeft(days);
   return `${day} · ${when}`;
 }
 
 function AddItemForm({ onAdded }: { onAdded: (item: Item) => void }) {
+  const { t } = useI18n();
   const [kind, setKind] = useState<Item['kind']>('tls');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -74,19 +77,19 @@ function AddItemForm({ onAdded }: { onAdded: (item: Item) => void }) {
 
   return (
     <form onSubmit={onSubmit} aria-labelledby="add-heading">
-      <h2 id="add-heading">Add an item</h2>
+      <h2 id="add-heading">{t.addItem}</h2>
       <p>
-        <label htmlFor="kind">Type</label>
+        <label htmlFor="kind">{t.type}</label>
         <br />
         <select id="kind" value={kind} onChange={(e) => setKind(e.target.value as Item['kind'])}>
-          <option value="tls">TLS certificate</option>
-          <option value="domain">Domain</option>
-          <option value="manual">Manual (token, licence…)</option>
+          <option value="tls">{t.kinds.tls}</option>
+          <option value="domain">{t.kinds.domain}</option>
+          <option value="manual">{t.kindManualOption}</option>
         </select>
       </p>
       {!manual && (
         <p>
-          <label htmlFor="host">Host name</label>
+          <label htmlFor="host">{t.hostName}</label>
           <br />
           <input
             id="host"
@@ -99,20 +102,20 @@ function AddItemForm({ onAdded }: { onAdded: (item: Item) => void }) {
         </p>
       )}
       <p>
-        <label htmlFor="label">{manual ? 'Label' : 'Label (optional)'}</label>
+        <label htmlFor="label">{manual ? t.label : t.labelOptional}</label>
         <br />
         <input id="label" name="label" maxLength={100} required={manual} />
       </p>
       {manual && (
         <p>
-          <label htmlFor="expires">Expires on</label>
+          <label htmlFor="expires">{t.expiresOn}</label>
           <br />
           <input id="expires" name="expires" type="date" min="2000-01-01" required />
         </p>
       )}
       {error && <p role="alert">{error}</p>}
       <button type="submit" disabled={busy}>
-        Add item
+        {t.addItemButton}
       </button>
     </form>
   );
@@ -127,6 +130,7 @@ function EditForm({
   onSaved: (item: Item) => void;
   onCancel: () => void;
 }) {
+  const { t } = useI18n();
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -151,9 +155,9 @@ function EditForm({
   };
 
   return (
-    <form onSubmit={onSubmit} aria-label={`Edit ${item.label}`}>
+    <form onSubmit={onSubmit} aria-label={t.editItem(item.label)}>
       <p>
-        <label htmlFor={`label-${item.id}`}>Label</label>
+        <label htmlFor={`label-${item.id}`}>{t.label}</label>
         <br />
         <input
           id={`label-${item.id}`}
@@ -166,7 +170,7 @@ function EditForm({
       </p>
       {item.kind === 'manual' && (
         <p>
-          <label htmlFor={`expires-${item.id}`}>Expires on</label>
+          <label htmlFor={`expires-${item.id}`}>{t.expiresOn}</label>
           <br />
           <input
             id={`expires-${item.id}`}
@@ -179,7 +183,7 @@ function EditForm({
         </p>
       )}
       <p>
-        <label htmlFor={`notes-${item.id}`}>Notes</label>
+        <label htmlFor={`notes-${item.id}`}>{t.notes}</label>
         <br />
         <textarea
           id={`notes-${item.id}`}
@@ -190,10 +194,10 @@ function EditForm({
       </p>
       {error && <p role="alert">{error}</p>}
       <button type="submit" disabled={busy}>
-        Save
+        {t.save}
       </button>{' '}
       <button type="button" onClick={onCancel}>
-        Cancel
+        {t.cancel}
       </button>
     </form>
   );
@@ -210,6 +214,7 @@ function ItemRow({
   onChanged: (item: Item) => void;
   onDeleted: (id: string) => void;
 }) {
+  const { t } = useI18n();
   const [mode, setMode] = useState<'view' | 'edit' | 'confirm'>('view');
   const [error, setError] = useState<string | null>(null);
   const editButton = useRef<HTMLButtonElement>(null);
@@ -254,16 +259,16 @@ function ItemRow({
       <th scope="row" role="rowheader">
         {item.label}
       </th>
-      <td role="cell" data-label="Type">
-        {KIND_NAME[item.kind]}
+      <td role="cell" data-label={t.colType}>
+        {t.kinds[item.kind]}
         {item.host && item.host !== item.label ? ` · ${item.host}` : ''}
       </td>
-      <td role="cell" data-label="Expires">
-        {expiryText(item)}
+      <td role="cell" data-label={t.colExpires}>
+        {expiryText(item, t)}
       </td>
-      <td role="cell" data-label="Status">
+      <td role="cell" data-label={t.colStatus}>
         <span className={`chip chip-${status}`}>
-          <span aria-hidden="true">{STATUS_CHIP[status].symbol}</span> {STATUS_CHIP[status].word}
+          <span aria-hidden="true">{STATUS_SYMBOL[status]}</span> {t.chips[status]}
         </span>
       </td>
       <td role="cell" className="row-actions">
@@ -277,14 +282,14 @@ function ItemRow({
             }}
           />
         ) : readOnly ? (
-          <span className="visually-hidden">Read-only in the demo</span>
+          <span className="visually-hidden">{t.readOnlyDemo}</span>
         ) : mode === 'confirm' ? (
           <>
             <button type="button" onClick={() => void remove()}>
-              Confirm delete {item.label}
+              {t.confirmDelete(item.label)}
             </button>{' '}
             <button type="button" autoFocus onClick={() => setMode('view')}>
-              Keep
+              {t.keep}
             </button>
           </>
         ) : (
@@ -292,21 +297,23 @@ function ItemRow({
             {item.kind !== 'manual' && (
               <>
                 <button type="button" disabled={checking} onClick={() => void checkNow()}>
-                  {checking ? 'Checking…' : 'Check now'}
+                  {checking ? t.checking : t.checkNow}
                   <span className="visually-hidden"> {item.label}</span>
                 </button>{' '}
               </>
             )}
             <button ref={editButton} type="button" onClick={() => setMode('edit')}>
-              Edit<span className="visually-hidden"> {item.label}</span>
+              {t.edit}
+              <span className="visually-hidden"> {item.label}</span>
             </button>{' '}
             <button ref={deleteButton} type="button" onClick={() => setMode('confirm')}>
-              Delete<span className="visually-hidden"> {item.label}</span>
+              {t.delete}
+              <span className="visually-hidden"> {item.label}</span>
             </button>
           </>
         )}
         {error && <p role="alert">{error}</p>}
-        {item.status === 'error' && item.lastError && <p>Last check: {item.lastError}</p>}
+        {item.status === 'error' && item.lastError && <p>{t.lastCheck(item.lastError)}</p>}
       </td>
     </tr>
   );
@@ -314,6 +321,7 @@ function ItemRow({
 
 export function Dashboard() {
   const { user, logout } = useAuth();
+  const { t } = useI18n();
   const [items, setItems] = useState<Item[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [version, setVersion] = useState(0);
@@ -338,45 +346,45 @@ export function Dashboard() {
 
   return (
     <main>
-      <h1>Dashboard</h1>
-      <p>Signed in as {user?.email}</p>
+      <h1>{t.dashboard}</h1>
+      <p>{t.signedInAs(user?.email ?? '')}</p>
       <button type="button" onClick={() => void logout()}>
-        Sign out
+        {t.signOut}
       </button>
 
       <h2 id="items-heading" tabIndex={-1}>
-        Your items
+        {t.yourItems}
       </h2>
       {error ? (
         <div role="alert">
           <p>{error}</p>
           <button type="button" onClick={() => void load()}>
-            Try again
+            {t.tryAgain}
           </button>
         </div>
       ) : !items ? (
-        <p role="status">Loading items…</p>
+        <p role="status">{t.loadingItems}</p>
       ) : items.length === 0 ? (
-        <p>Nothing tracked yet. Add a domain, a TLS host or a token to see its days left.</p>
+        <p>{t.nothingTracked}</p>
       ) : (
         <table role="table">
-          <caption className="visually-hidden">Tracked items and their expiry</caption>
+          <caption className="visually-hidden">{t.tableCaption}</caption>
           <thead role="rowgroup">
             <tr role="row">
               <th scope="col" role="columnheader">
-                Item
+                {t.colItem}
               </th>
               <th scope="col" role="columnheader">
-                Type
+                {t.colType}
               </th>
               <th scope="col" role="columnheader">
-                Expires
+                {t.colExpires}
               </th>
               <th scope="col" role="columnheader">
-                Status
+                {t.colStatus}
               </th>
               <th scope="col" role="columnheader">
-                Actions
+                {t.colActions}
               </th>
             </tr>
           </thead>
@@ -388,11 +396,11 @@ export function Dashboard() {
                 readOnly={readOnly}
                 onChanged={(saved) => {
                   setItems(items.map((i) => (i.id === saved.id ? saved : i)));
-                  itemsChanged(`${saved.label} updated`);
+                  itemsChanged(t.updated(saved.label));
                 }}
                 onDeleted={(id) => {
                   setItems(items.filter((i) => i.id !== id));
-                  itemsChanged(`${items.find((i) => i.id === id)?.label ?? 'Item'} deleted`);
+                  itemsChanged(t.deleted(items.find((i) => i.id === id)?.label ?? t.itemFallback));
                   document.getElementById('items-heading')?.focus();
                 }}
               />
@@ -402,21 +410,22 @@ export function Dashboard() {
       )}
 
       {readOnly ? (
-        <p>The demo account is read-only.</p>
+        <p>{t.demoReadOnly}</p>
       ) : error ? null : (
         <AddItemForm
           onAdded={(item) => {
             setItems((items) => [...(items ?? []), item]);
-            itemsChanged(`${item.label} added`);
+            itemsChanged(t.added(item.label));
           }}
         />
       )}
 
       <Alerts readOnly={readOnly} version={version} />
       <Settings readOnly={readOnly} />
+      {!readOnly && <Account />}
       {!readOnly && <DeleteAccount />}
       <p>
-        <Link to="/privacy">Privacy</Link>
+        <Link to="/privacy">{t.privacy}</Link>
       </p>
     </main>
   );

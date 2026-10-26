@@ -4,6 +4,22 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Added
+
+- Password reset by email (one-time link, valid for 1 hour, closes every session) and a "forgot your password" page.
+- Email confirmation: a link is sent at sign-up and can be sent again from the dashboard. Alert emails go only to confirmed addresses.
+- Change password (asks for the current one, closes the other sessions) and change email (the new address must confirm a link first).
+- Spanish and English interface with a selector (remembered, default from the browser language), including the server's error messages and every email.
+- Local dev outbox at `/__outbox` instead of sending account emails.
+
+### Changed
+
+- Deleting an account also removes its pending links and rate-limit counters.
+
+### Security
+
+- Patched the `body-parser` denial-of-service advisory; PGlite 0.5.12.
+
 ## [0.1.0] - 2026-10-22
 
 First release.

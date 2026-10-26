@@ -1,9 +1,11 @@
 import { useRef, useState, type FormEvent } from 'react';
 import { api, errorMessage } from './api';
 import { useAuth } from './auth';
+import { useI18n } from './i18n';
 
 export function DeleteAccount() {
   const { logout } = useAuth();
+  const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -25,16 +27,16 @@ export function DeleteAccount() {
 
   return (
     <section aria-labelledby="delete-heading">
-      <h2 id="delete-heading">Delete account</h2>
+      <h2 id="delete-heading">{t.deleteTitle}</h2>
       {!open ? (
         <button ref={trigger} type="button" onClick={() => setOpen(true)}>
-          Delete my account…
+          {t.deleteOpen}
         </button>
       ) : (
         <form onSubmit={onSubmit}>
-          <p>This permanently removes your account, items and alerts. It cannot be undone.</p>
+          <p>{t.deleteWarn}</p>
           <p>
-            <label htmlFor="delete-password">Confirm with your password</label>
+            <label htmlFor="delete-password">{t.deleteConfirmPassword}</label>
             <br />
             <input
               id="delete-password"
@@ -48,7 +50,7 @@ export function DeleteAccount() {
           </p>
           {error && <p role="alert">{error}</p>}
           <button type="submit" disabled={busy}>
-            Permanently delete my account
+            {t.deleteSubmit}
           </button>{' '}
           <button
             type="button"
@@ -58,7 +60,7 @@ export function DeleteAccount() {
               setTimeout(() => trigger.current?.focus());
             }}
           >
-            Cancel
+            {t.cancel}
           </button>
         </form>
       )}

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useI18n } from './i18n';
 
 // Decorative radar: the rings are the alert thresholds (30, 14, 7 and 1 days), a dot is an item and
 // the nearer the centre, the sooner it expires. The sweep stops under prefers-reduced-motion (CSS).
@@ -18,6 +19,7 @@ const BLIPS = [
 
 export function Radar() {
   const [paused, setPaused] = useState(false);
+  const { t } = useI18n();
   return (
     <div className="radar-box">
       <svg className="radar" viewBox="0 0 400 400" aria-hidden="true" data-paused={paused}>
@@ -45,7 +47,7 @@ export function Radar() {
         ))}
       </svg>
       <button type="button" aria-pressed={paused} onClick={() => setPaused((p) => !p)}>
-        {paused ? 'Play radar animation' : 'Pause radar animation'}
+        {paused ? t.playRadar : t.pauseRadar}
       </button>
     </div>
   );

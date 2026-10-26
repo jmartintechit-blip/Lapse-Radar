@@ -7,6 +7,7 @@ export default defineConfig({
   retries: process.env.CI ? 1 : 0,
   use: {
     baseURL: 'http://localhost:5174',
+    locale: 'en-US', // the app follows the browser language; the tests read English
     ...(process.env.CI ? {} : { channel: 'chrome' }),
   },
   webServer: {

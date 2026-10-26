@@ -1,7 +1,10 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
 import { Navigate, Outlet } from 'react-router';
 
-export type User = { id: string; email: string; isDemo: boolean };
+import { getDict, serverMessage, useI18n } from './i18n';
+import { jsonHeaders } from './api';
+
+export type User = { id: string; email: string; isDemo: boolean; emailVerified: boolean };
 
 // undefined = still asking the server, null = signed out.
 type AuthState = {
@@ -12,6 +15,7 @@ type AuthState = {
     password: string,
   ) => Promise<string | null>;
   logout: () => Promise<void>;
+  refresh: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthState | null>(null);
@@ -25,7 +29,7 @@ export function useAuth() {
 const send = (path: string, body?: unknown) =>
   fetch(`/api${path}`, {
     method: 'POST',
-    headers: { 'content-type': 'application/json' },
+    headers: jsonHeaders(),
     body: JSON.stringify(body ?? {}),
   });
 
@@ -49,12 +53,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const body = (await res.json().catch(() => null)) as {
           error?: { message?: string };
         } | null;
-        return body?.error?.message ?? 'Something went wrong, try again';
+        return body?.error?.message ? serverMessage(body.error.message) : getDict().generic;
       }
       await refresh();
       return null;
     } catch {
-      return 'Cannot reach the server, check your connection';
+      return getDict().offline;
     }
   };
 
@@ -63,15 +67,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
   };
 
-  return <AuthContext value={{ user, authenticate, logout }}>{children}</AuthContext>;
+  return <AuthContext value={{ user, authenticate, logout, refresh }}>{children}</AuthContext>;
 }
 
 export function RequireUser() {
   const { user } = useAuth();
+  const { t } = useI18n();
   if (user === undefined)
     return (
       <main>
-        <p role="status">Loading…</p>
+        <p role="status">{t.loading}</p>
       </main>
     );
   return user ? <Outlet /> : <Navigate to="/login" replace />;

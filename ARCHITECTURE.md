@@ -41,11 +41,12 @@ flowchart TB
 
 ## Data model
 
-`users` · `sessions` · `items` · `alerts` · `rate_limits` · `email_quota` (+ `schema_migrations`).
+`users` · `sessions` · `account_tokens` · `items` · `alerts` · `rate_limits` · `email_quota` (+ `schema_migrations`).
 
 - `items` belong to a user (`user_id`), have a kind (`tls`, `domain`, `manual`), a host for automatic kinds, `expires_at`, check status and `next_check_at`. A partial index serves the "due" query; `(user_id, kind, host)` is unique.
 - `alerts` carry the item, the threshold in days and a **snapshot of the expiry date**. `unique (item_id, threshold_days, expiry_snapshot)` is the idempotency key. A composite foreign key `(user_id, item_id)` makes it impossible to attach an alert to another user's item, and deleting an item or user cascades.
-- Sessions store only the SHA-256 of the cookie token.
+- Sessions store only the SHA-256 of the cookie token. `account_tokens` works the same way for the one-time links (confirm email, reset password, confirm a new email): only the hash is stored, a new link replaces the previous one of its purpose, and opening it deletes it. The link carries the token in the URL fragment, which browsers do not send to servers or in referrers, and the pages remove it from the address bar after reading it.
+- `users.lang` (`en` or `es`) is the language of the emails; the web app keeps it in step with its language selector.
 
 ## Request flow
 

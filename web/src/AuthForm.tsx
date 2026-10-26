@@ -1,9 +1,11 @@
 import { useState, type FormEvent } from 'react';
 import { Link, Navigate } from 'react-router';
 import { useAuth } from './auth';
+import { useI18n } from './i18n';
 
 export function AuthForm({ mode }: { mode: 'login' | 'signup' }) {
   const { user, authenticate } = useAuth();
+  const { t } = useI18n();
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const signup = mode === 'signup';
@@ -20,15 +22,15 @@ export function AuthForm({ mode }: { mode: 'login' | 'signup' }) {
 
   return (
     <main>
-      <h1>{signup ? 'Create account' : 'Sign in'}</h1>
+      <h1>{signup ? t.createAccount : t.signIn}</h1>
       <form onSubmit={onSubmit}>
         <p>
-          <label htmlFor="email">Email</label>
+          <label htmlFor="email">{t.email}</label>
           <br />
           <input id="email" name="email" type="email" autoComplete="email" required />
         </p>
         <p>
-          <label htmlFor="password">Password</label>
+          <label htmlFor="password">{t.password}</label>
           <br />
           <input
             id="password"
@@ -41,23 +43,28 @@ export function AuthForm({ mode }: { mode: 'login' | 'signup' }) {
             required
           />
         </p>
-        {signup && <p id="password-hint">10 to 128 characters.</p>}
+        {signup && <p id="password-hint">{t.passwordHint}</p>}
         {error && <p role="alert">{error}</p>}
         <button type="submit" disabled={busy}>
-          {signup ? 'Create account' : 'Sign in'}
+          {signup ? t.createAccount : t.signIn}
         </button>
       </form>
       <p>
         {signup ? (
           <>
-            Already registered? <Link to="/login">Sign in</Link>
+            {t.haveAccount} <Link to="/login">{t.signIn}</Link>
           </>
         ) : (
           <>
-            New here? <Link to="/signup">Create an account</Link>
+            {t.newHere} <Link to="/signup">{t.createAccount}</Link>
           </>
         )}
       </p>
+      {!signup && (
+        <p>
+          <Link to="/forgot-password">{t.forgotLink}</Link>
+        </p>
+      )}
     </main>
   );
 }

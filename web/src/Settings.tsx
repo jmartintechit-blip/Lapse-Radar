@@ -1,11 +1,13 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { useAnnounce } from './announce';
 import { api, errorMessage } from './api';
+import { useI18n } from './i18n';
 
 type Settings = { thresholds: number[]; emailAlerts: boolean };
 
 export function Settings({ readOnly }: { readOnly: boolean }) {
   const announce = useAnnounce();
+  const { t } = useI18n();
   const [thresholds, setThresholds] = useState('');
   const [emailAlerts, setEmailAlerts] = useState(true);
   const [loaded, setLoaded] = useState(false);
@@ -50,7 +52,7 @@ export function Settings({ readOnly }: { readOnly: boolean }) {
         }),
       );
       setSaved(true);
-      announce('Alert settings saved');
+      announce(t.settingsAnnounce);
     } catch (err) {
       setError(errorMessage(err));
     }
@@ -59,20 +61,18 @@ export function Settings({ readOnly }: { readOnly: boolean }) {
 
   return (
     <section aria-labelledby="settings-heading">
-      <h2 id="settings-heading">Alert settings</h2>
+      <h2 id="settings-heading">{t.settingsTitle}</h2>
       {!loaded ? (
         error ? (
           <p role="alert">{error}</p>
         ) : (
-          <p>Loading settings…</p>
+          <p>{t.loadingSettings}</p>
         )
       ) : (
         <form onSubmit={onSubmit}>
-          {readOnly && <p id="settings-readonly">Read-only in the demo account.</p>}
+          {readOnly && <p id="settings-readonly">{t.settingsReadOnly}</p>}
           <p>
-            <label htmlFor="thresholds">
-              Alert me when this many days are left (comma separated)
-            </label>
+            <label htmlFor="thresholds">{t.thresholdsLabel}</label>
             <br />
             <input
               id="thresholds"
@@ -80,13 +80,13 @@ export function Settings({ readOnly }: { readOnly: boolean }) {
               onChange={(e) => setThresholds(e.target.value)}
               inputMode="numeric"
               pattern="[0-9, ]+"
-              title="Whole numbers separated by commas, for example 30, 14, 7, 1"
+              title={t.thresholdsHint}
               aria-describedby={readOnly ? 'settings-readonly' : 'thresholds-hint'}
               readOnly={readOnly}
               required
             />
           </p>
-          <p id="thresholds-hint">Whole numbers separated by commas, for example 30, 14, 7, 1.</p>
+          <p id="thresholds-hint">{t.thresholdsHint}</p>
           <p>
             <label>
               <input
@@ -95,14 +95,14 @@ export function Settings({ readOnly }: { readOnly: boolean }) {
                 onChange={(e) => setEmailAlerts(e.target.checked)}
                 disabled={readOnly}
               />{' '}
-              Also send alerts by email
+              {t.emailAlerts}
             </label>
           </p>
           {error && <p role="alert">{error}</p>}
-          {saved && <p>Settings saved.</p>}
+          {saved && <p>{t.settingsSaved}</p>}
           {!readOnly && (
             <button type="submit" disabled={busy}>
-              Save settings
+              {t.saveSettings}
             </button>
           )}
         </form>

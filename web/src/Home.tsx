@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { useAuth } from './auth';
+import { useI18n } from './i18n';
 import { Radar } from './Radar';
 
 type ApiStatus = 'loading' | 'ok' | 'error';
@@ -8,6 +9,7 @@ type ApiStatus = 'loading' | 'ok' | 'error';
 export function Home() {
   const [status, setStatus] = useState<ApiStatus>('loading');
   const { user, authenticate } = useAuth();
+  const { t } = useI18n();
   const navigate = useNavigate();
   const [demoError, setDemoError] = useState<string | null>(null);
   const [starting, setStarting] = useState(false);
@@ -33,17 +35,14 @@ export function Home() {
       <section className="hero" aria-labelledby="hero-title">
         <div>
           <h1 id="hero-title">
-            Know what expires <br />
-            before it breaks.
+            {t.heroLine1} <br />
+            {t.heroLine2}
           </h1>
-          <p className="lead">
-            One panel for TLS certificates, domains and tokens. Days left at a glance, automatic
-            checks, and one alert per threshold, never a flood.
-          </p>
-          <nav aria-label="Account" className="actions">
+          <p className="lead">{t.lead}</p>
+          <nav aria-label={t.account} className="actions">
             {user ? (
               <Link to="/dashboard" className="cta">
-                Go to dashboard
+                {t.goDashboard}
               </Link>
             ) : (
               <>
@@ -53,13 +52,13 @@ export function Home() {
                   disabled={starting}
                   onClick={() => void startDemo()}
                 >
-                  Try the read-only demo
+                  {t.tryDemo}
                 </button>
                 <Link to="/signup" className="cta ghost">
-                  Create account
+                  {t.createAccount}
                 </Link>
                 <Link to="/login" className="cta ghost">
-                  Sign in
+                  {t.signIn}
                 </Link>
               </>
             )}
@@ -70,26 +69,23 @@ export function Home() {
       </section>
 
       <section aria-labelledby="how-title">
-        <h2 id="how-title">How it works</h2>
+        <h2 id="how-title">{t.howTitle}</h2>
         <ol className="steps">
           <li>
-            <strong>Add what can lapse.</strong> A host for its TLS certificate, a domain, or any
-            token or licence with a date.
+            <strong>{t.step1}</strong> {t.step1Text}
           </li>
           <li>
-            <strong>Checks run for you.</strong> Certificates and registered domains are checked
-            automatically; you can also check on demand.
+            <strong>{t.step2}</strong> {t.step2Text}
           </li>
           <li>
-            <strong>Get told once.</strong> An alert at 30, 14, 7 and 1 days and at expiry, in the
-            app and by email, without repeats.
+            <strong>{t.step3}</strong> {t.step3Text}
           </li>
         </ol>
       </section>
 
       <footer className="site-footer">
-        <Link to="/privacy">Privacy</Link>
-        <span>API status: {status}</span>
+        <Link to="/privacy">{t.privacy}</Link>
+        <span>{t.apiStatus(status)}</span>
       </footer>
     </main>
   );

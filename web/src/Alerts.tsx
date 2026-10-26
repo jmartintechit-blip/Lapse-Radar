@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useAnnounce } from './announce';
 import { api, errorMessage } from './api';
+import { useI18n } from './i18n';
 
 type Alert = {
   id: string;
@@ -12,16 +13,13 @@ type Alert = {
   readAt: string | null;
 };
 
-const describe = (a: Alert) =>
-  a.thresholdDays === 0
-    ? `${a.label} has expired`
-    : `${a.label} expires in ${a.thresholdDays} day${a.thresholdDays === 1 ? '' : 's'} or less`;
-
 // version changes whenever items change, because that is when new alerts can appear.
 export function Alerts({ readOnly, version }: { readOnly: boolean; version: number }) {
   const [alerts, setAlerts] = useState<Alert[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const announce = useAnnounce();
+  const { t } = useI18n();
+  const describe = (a: Alert) => t.alertText(a.label, a.thresholdDays);
 
   const load = useCallback(async () => {
     setError(null);
@@ -38,7 +36,7 @@ export function Alerts({ readOnly, version }: { readOnly: boolean; version: numb
     try {
       await api('POST', path);
       setAlerts((list) => list?.map(update) ?? null);
-      announce(path.endsWith('read-all') ? 'All alerts marked as read' : 'Alert marked as read');
+      announce(path.endsWith('read-all') ? t.allMarked : t.oneMarked);
       // the button that had focus is gone: continue from the section heading
       document.getElementById('alerts-heading')?.focus();
     } catch (err) {
@@ -51,20 +49,20 @@ export function Alerts({ readOnly, version }: { readOnly: boolean; version: numb
   return (
     <section aria-labelledby="alerts-heading">
       <h2 id="alerts-heading" tabIndex={-1}>
-        Alerts{unread > 0 && ` (${unread} unread)`}
+        {t.alertsTitle(unread)}
       </h2>
       {error && (
         <div role="alert">
           <p>{error}</p>
           <button type="button" onClick={() => void load()}>
-            Try again
+            {t.tryAgain}
           </button>
         </div>
       )}
       {!alerts ? (
-        !error && <p role="status">Loading alerts…</p>
+        !error && <p role="status">{t.loadingAlerts}</p>
       ) : alerts.length === 0 ? (
-        <p>No alerts yet. They appear when an item gets close to its expiry date.</p>
+        <p>{t.noAlerts}</p>
       ) : (
         <>
           {!readOnly && unread > 0 && (
@@ -74,13 +72,13 @@ export function Alerts({ readOnly, version }: { readOnly: boolean; version: numb
                 void markRead('/alerts/read-all', (a) => ({ ...a, readAt: a.readAt ?? now }))
               }
             >
-              Mark all as read
+              {t.markAllRead}
             </button>
           )}
           <ul>
             {alerts.map((a) => (
               <li key={a.id}>
-                {a.readAt ? '' : <strong>New: </strong>}
+                {a.readAt ? '' : <strong>{t.newPrefix}</strong>}
                 {describe(a)} ({a.expiresAt.slice(0, 10)}){' '}
                 {!a.readAt && !readOnly && (
                   <button
@@ -91,7 +89,8 @@ export function Alerts({ readOnly, version }: { readOnly: boolean; version: numb
                       )
                     }
                   >
-                    Mark as read<span className="visually-hidden">: {describe(a)}</span>
+                    {t.markRead}
+                    <span className="visually-hidden">: {describe(a)}</span>
                   </button>
                 )}
               </li>
